@@ -11,9 +11,14 @@ These conventions keep the Android output faithful to iOS intent **and** correct
 Material 3 — without copying any pre-existing Android work.
 
 > Prerequisite: the official **Figma MCP** must be running and authenticated
-> (`mcp__plugin_figma_figma__whoami`). This skill drives `use_figma`. Stable
-> component keys / tokens / layout values live in `${CLAUDE_PLUGIN_ROOT}/registry/components.json` —
-> read them from there rather than re-discovering by search.
+> (`mcp__plugin_figma_figma__whoami`). This skill drives `use_figma`.
+>
+> **Source of truth for values:** component keys, design tokens, and layout constants live
+> in `${CLAUDE_PLUGIN_ROOT}/registry/components.json` — read them from there. This doc teaches
+> the *method* and names the registry keys; any literal number or hex shown inline is
+> **illustrative** (a current value from the Loop flow), not authoritative. When prose and
+> registry disagree, the registry wins. Keeping the literals out of the prose is what stops
+> this skill from going stale as the design system evolves.
 
 ---
 
@@ -33,34 +38,40 @@ with minimal horizontal scrolling:
 
 | Section | Name | Screen width | Section background | Sidebar |
 |---|---|---|---|---|
-| Source | `ISO Section` | 375 | `#565656` | black `Status`, white text |
-| Target | `ANDROID Section` | 412 | `#BCBCBC` | **white** `Status`, dark text |
+| Source | iOS section (existing) | 375 | as-is (read its fill) | black `Status`, white text |
+| Target | `ANDROID Section` | 412 | `tokens.sectionBackground` | **white** `Status`, dark text |
 
 ### Sidebar (`Status` frame)
-- Left rail, **896** wide, full section height, flow title in **Work Sans Bold 92**.
-- Android: **white fill**, dark text (`#1A1A1A`), flush at `x=0, y=0`.
+- Left rail, `layout.sidebarWidth` wide, full section height; flow title inherited from the
+  cloned iOS sidebar (Work Sans Bold 92 in Loop — comes along with the clone, not set here).
+- Android: **white fill**, dark text (`tokens.sidebarText`), flush at `x=0, y=0`.
 - **Remove the stroke** after cloning the iOS sidebar (it carries a black stroke that
   is invisible on black but shows as a border on white): `strokes = []`.
 
-### Section layout rules (constants from `registry.layout`; read off `ISO Section` to confirm)
-- **Placement:** `ANDROID Section` is left-aligned with `ISO Section` (`x = ISO.x`) and
-  sits **directly below it** (`y = ISO.y + ISO.height + 800`). Stack vertically — never
-  place it to the right of iOS.
-- **Section frame:** `cornerRadius = 64`, `clipsContent = true`, background `#BCBCBC`.
-- **Screen row:** single horizontal row, flow order, fixed pitch. 412 wide + 48 gutter →
-  **460px step**. First screen `x = 1184`. Formula: `screen.x = 1184 + order * 460`.
-- **Column alignment across sections:** both sections share the **same start x (1184) and
-  pitch (460)** so each iOS screen sits directly above its Android counterpart. iOS screens
-  (375) are usually at a tighter pitch (~415); **re-space the iOS screens to 460** (canvas
-  spacing only — no design change) so pairs left-align. Keep true device widths (375 / 412),
+### Section layout rules
+Every constant below is a key in `registry.layout` — read them at runtime; parenthetical
+numbers are the current Loop values, for orientation only.
+- **Placement:** `ANDROID Section` is left-aligned with the iOS section (`x = iOS.x`) and
+  sits **directly below it** (`y = iOS.y + iOS.height + sectionStackGap`). Stack vertically —
+  never place it to the right of iOS.
+- **Section frame:** `cornerRadius = sectionCornerRadius`, `clipsContent = true`,
+  background `tokens.sectionBackground`.
+- **Screen row:** single horizontal row in flow order at fixed pitch —
+  `screen.x = firstScreenX + order * screenPitch` (Android 412 + 48 gutter → 460 step).
+- **Column alignment across sections:** both sections share the same `firstScreenX` and
+  `screenPitch` so each iOS screen sits directly above its Android counterpart. If the iOS
+  screens sit at a tighter pitch, **re-space them to `screenPitch`** (canvas spacing only —
+  no design change) so pairs left-align. Keep true device widths (iOS 375 / Android 412),
   left-aligned (not centered). **Equalize the two section widths** (use the wider).
-- **Vertical baseline:** every screen at `y = 192` (iOS top padding), top-aligned.
-- **Right inset:** `section.width = (rightmost screen right edge) + 288` (match leading inset).
-- **Section height:** `max(screen.y + screen.height) + 192` (192 bottom padding).
+- **Vertical baseline:** every screen at `y = screenBaselineY`, top-aligned.
+- **Right inset:** `section.width = (rightmost screen right edge) + (firstScreenX −
+  sidebarWidth)` — i.e. match the leading inset (288 in Loop).
+- **Section height:** `max(screen.y + screen.height) + sectionBottomPadding`.
 - **Sidebar height** tracks section height.
 
-> Constant: pitch, baseline (192), section radius (64), 192/192 padding, and the stacked
-> left-aligned placement. Flexible: section width/height and per-screen heights.
+> Constant (in `registry.layout`): pitch, baseline, section radius, top/bottom padding, and
+> the stacked left-aligned placement. Flexible (derived per build): section width/height and
+> per-screen heights.
 
 ---
 
@@ -107,21 +118,23 @@ Each iOS screen = `Content AL` + `Bottom Actions` + a top chrome instance. **Clo
 ## 4. Conventions & decisions
 
 ### 4.1 Typography — preserve iOS metrics, swap family only
-Goal: visual parity with iOS. **Swap family SF Pro → Roboto; keep iOS size, weight,
-line-height, letter-spacing.** Map weight 1:1 **per text segment** (so mixed runs survive):
-Regular→Regular, Medium→Medium, Semibold→**SemiBold**, Bold→Bold, Light→Light,
-Black/Heavy→Black (+ Italic preserved). For this flow: title = Roboto Bold 34, body/list =
-Roboto Regular 17, CTA label = Roboto Medium 16 (white) — see §4.4.
+Goal: visual parity with iOS. **Swap family only; keep iOS size, weight, line-height,
+letter-spacing.** The source family prefixes, target family, and per-weight map all live in
+`registry.typography` (Loop: SF Pro / Work Sans → Roboto, Semibold→SemiBold, Heavy→Black,
+…). Map weight **per text segment** so mixed runs survive (Italic preserved).
 
-Implementation: iterate `getStyledTextSegments(['fontName'])`; for each segment whose
-family starts with `SF Pro` (or `Work Sans`), `setRangeFontName(start, end, {family:'Roboto', style: mapped})`.
-**Never** set `fontSize`/`lineHeight` — keep the cloned iOS values.
+Implementation: iterate `getStyledTextSegments(['fontName'])`; for each segment whose family
+matches a `sourceFamilyPrefixes` entry, `setRangeFontName(start, end, {family: targetFamily,
+style: mapped})`. **Never** set `fontSize`/`lineHeight` — keep the cloned iOS values, so the
+type ramp (e.g. a ~34px Bold title over ~17px body) carries over without being hardcoded here.
 
-**Material divergence (accepted):** body/labels at 16–17px match Material Body Large fine.
-The one deliberate break is the **34px Bold** title (iOS Large Title) — Material would use
-Regular/Medium at that size. Decision rule: if an iOS pattern intentionally breaks the iOS
-DS, carry that break to Android; otherwise follow each platform's DS, and where the Android
-DS doesn't specify, match the iOS weight/size/spacing.
+The CTA label is the exception: the pill is rebuilt, not cloned, so its label is *specified*,
+not preserved — Roboto Medium 16 white (§4.4).
+
+**Material divergence — decision rule:** if an iOS pattern intentionally breaks the iOS DS
+(e.g. an oversized Large-Title weight Material would set lighter), carry that break to
+Android; otherwise follow each platform's DS, and where the Android DS is silent, match the
+iOS weight/size/spacing.
 
 ### 4.2 Layout
 - Content horizontal margins: iOS 16dp → **Android 24dp**. Content width = `412 − 48 = 364`.
@@ -155,7 +168,7 @@ recoloring instance internals is fragile.) If governance requires the DS compone
 Material `Button` (Filled/enabled), FILL width, override container fill to brand.
 
 ### 4.5 Brand color
-Loop blue **`#657FF7`** (`rgb(0.396, 0.502, 0.969)`), from the iOS primary button fill.
+`tokens.brandPrimary` (Loop blue `#657FF7`), sourced from the iOS primary button fill.
 
 ### 4.6 Status bar & gesture nav
 - Status bar: Material 3 `statusBar` instance, FILL width.
@@ -199,12 +212,13 @@ Loop blue **`#657FF7`** (`rgb(0.396, 0.502, 0.969)`), from the iOS primary butto
 - **Switching the app-bar `Configuration` variant resets overrides** — re-apply, or (better)
   clone a pre-configured instance.
 - **`small-centered` leading glyph defaults to hamburger** — always swap to `iconBack`.
-- **Title extraction:** the iOS chrome instance bundles example toolbars (e.g. "Settings"),
-  and body charts reuse the name `Title`. For this flow the toolbar title is the constant
-  flow name — don't scrape it heuristically.
-- **CTA label:** read only from the **visible `Button / Primary`** subtree (check ancestor
-  visibility). The hidden `Pagination` frame holds a stale label (e.g. "Finish") with its
-  own `visible=true`.
+- **Title — don't scrape heuristically:** iOS chrome instances bundle example toolbars
+  (e.g. a stray "Settings") and body charts reuse generic node names like `Title`. The
+  app-bar title is the flow name (a known constant for the run) — set it directly.
+- **CTA label — read only from the visible `Button / Primary`** subtree, checking *ancestor*
+  visibility (not just the node's own `visible`). Hidden sibling frames can carry a stale
+  duplicate label — e.g. in the Loop file a hidden `Pagination` frame holds "Finish" with
+  its own `visible=true`.
 - **Cloned iOS frames carry iOS strokes/fills** — audit and clear (the black sidebar stroke).
 - **Screen background ≠ always white** — when cloning a white template screen, re-copy the
   iOS screen frame's fill onto the new frame + gesture nav, or an intentional tint (e.g.
