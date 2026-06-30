@@ -76,10 +76,15 @@ component) or `importComponentSetByKeyAsync` (variant set), then `.createInstanc
 ---
 
 ## 3. Android screen skeleton
-Vertical auto-layout frame, 412 wide, white, `itemSpacing: 0`, `cornerRadius 18`, `clipsContent`:
+Vertical auto-layout frame, 412 wide, `itemSpacing: 0`, `cornerRadius 18`, `clipsContent`.
+**Background: copy the iOS screen frame's own fill — do not hardcode white.** Most screens
+are white, but some carry an intentional tint (e.g. the terminal index screen is `#F2F2F7`,
+a slight blue-gray, with white content cards on top). Read `iosScreen.fills` and apply it to
+the Android screen frame **and** the gesture nav (the M3 status bar is transparent and
+inherits it); cloning a white template silently drops the tint.
 
 ```
-ADITL / NN  (FRAME, vertical auto-layout, 412 × H, white, r18, clip)
+ADITL / NN  (FRAME, vertical auto-layout, 412 × H, bg = iOS fill, r18, clip)
 ├─ status bar     (instance, FILL width)                ← Material 3
 ├─ Top app bar    (instance, FILL width)                ← small-centered, white surface
 ├─ Content        (auto-layout, FILL, pad L/R 24, top 16, gap 24)
@@ -160,7 +165,8 @@ Loop blue **`#657FF7`** (`rgb(0.396, 0.502, 0.969)`), from the iOS primary butto
 ---
 
 ## 5. Procedure (per flow)
-1. **Preflight:** `whoami`; read `registry/components.json`.
+1. **Preflight:** `whoami`; read `registry/components.json`; enumerate the iOS Section's
+   direct children to build the authoritative screen list (see §6 — don't name-regex).
 2. **Section setup:** create `ANDROID Section` stacked below iOS, left-aligned; gray bg;
    clone iOS `Status` sidebar → white fill, dark text, **stroke removed**, full height.
 3. **Screen 1 first**, get sign-off before batching.
@@ -172,6 +178,19 @@ Loop blue **`#657FF7`** (`rgb(0.396, 0.502, 0.969)`), from the iOS primary butto
 ---
 
 ## 6. Gotchas
+- **Discover screens by enumerating the iOS Section's direct children — never by
+  name-pattern.** Run a read-only `use_figma` returning `isoSection.children`
+  (id/name/type/x/y/w/h), drop the `Status` sidebar, sort by `x` → that is the
+  authoritative screen list. Do **not** grep metadata for `ADITL / NN`: flows include
+  off-convention frames (e.g. the terminal `End Screen (ADTL)`) that a name-regex
+  silently drops, leaving the Android section short a screen. Such terminal/menu screens
+  are also structurally non-standard — **mirror the iOS screen's own chrome, don't impose
+  the standard skeleton.** The terminal index screen has *no top toolbar* (no back/close)
+  and *no `Button / Primary` CTA* in its iOS frame, so the Android version gets **neither**
+  a Top app bar nor a CTA — just the cloned/re-fonted content plus device chrome (status
+  bar, gesture nav). Adding back/close or a Continue button here invents UI the source
+  lacks (golden rule). Check whether each screen actually has a chrome instance before
+  rebuilding one, and flag terminal screens for human judgment.
 - **`use_figma` is atomic** — failed scripts make no changes; fix and retry. Work in small
   steps (≤10 ops) and screenshot between them.
 - **Re-fonting:** load a node's *current* font before mutating, or it throws "unloaded font".
@@ -187,6 +206,9 @@ Loop blue **`#657FF7`** (`rgb(0.396, 0.502, 0.969)`), from the iOS primary butto
   visibility). The hidden `Pagination` frame holds a stale label (e.g. "Finish") with its
   own `visible=true`.
 - **Cloned iOS frames carry iOS strokes/fills** — audit and clear (the black sidebar stroke).
+- **Screen background ≠ always white** — when cloning a white template screen, re-copy the
+  iOS screen frame's fill onto the new frame + gesture nav, or an intentional tint (e.g.
+  `#F2F2F7`) is silently lost. See §3.
 - **Resizing a section moves children with center/scale constraints** (the sidebar drifted
   ~half the width delta). After any section resize, re-snap the sidebar to `x=0` and set
   `constraints = {horizontal:'MIN', vertical:'STRETCH'}` so it stays flush-left, full-height.
