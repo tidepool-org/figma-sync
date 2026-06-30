@@ -1,5 +1,5 @@
 {
-  "$comment": "EXAMPLE of the per-designer mapping. The real file lives OUTSIDE the repo at ~/.figma-sync/mappings.json and is created/updated by the figma-sync commands. It records, per flow: the Figma file, the iOS and Android section nodes, and the iOS<->Android screen-node pairs. create-android WRITES it; sync-screens and apply-ds-update READ it.",
+  "$comment": "EXAMPLE of the per-designer mapping. The real file lives OUTSIDE the repo at ~/.figma-sync/mappings.json and is created/updated by the figma-sync commands. It records, per flow: the Figma file, the iOS and Android section nodes, and the iOS<->Android screen-node pairs. create-android/create-ios WRITE it; sync-screens and apply-ds-update READ it. Each screenPair MAY also carry per-side content snapshots (iosSnapshot / androidSnapshot): the captured content of that screen at the last sync. A snapshot has a DUAL ROLE — it is both the drift baseline (diff live content against it to attribute who changed) and the rollback record (restore content from it). Snapshots hold CONTENT ONLY (text, image refs, structure hash, CTA label, screen fill) — never chrome (status bar, app bar, nav, gesture/home indicator) or font family, which differ by platform by design and are not drift. ALL snapshot/sync fields are OPTIONAL and back-compatible: an entry written by an older create-* run (no snapshots, no lastSyncDirection) is still valid and simply degrades to live-only detection.",
   "version": 1,
   "flows": [
     {
@@ -10,11 +10,30 @@
       "iosSectionNodeId": "1:9358",
       "androidSectionNodeId": "4008:3273",
       "screenPairs": [
-        { "name": "ADITL / 01", "ios": "1:9362", "android": "4008:3275" },
+        {
+          "name": "ADITL / 01",
+          "ios": "1:9362",
+          "android": "4008:3275",
+          "iosSnapshot": {
+            "texts": ["A day in the life", "See how Loop fits into your everyday routine."],
+            "imageRefs": ["a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"],
+            "structHash": "sha256:9f2c1b7e",
+            "ctaLabel": "Continue",
+            "screenFill": "#FFFFFF"
+          },
+          "androidSnapshot": {
+            "texts": ["A day in the life", "See how Loop fits into your everyday routine."],
+            "imageRefs": ["a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"],
+            "structHash": "sha256:9f2c1b7e",
+            "ctaLabel": "Continue",
+            "screenFill": "#FFFFFF"
+          }
+        },
         { "name": "ADITL / 02", "ios": "1:9403", "android": "4025:3305" }
       ],
       "createdAt": "2026-06-26",
-      "lastSyncedAt": "2026-06-26"
+      "lastSyncedAt": "2026-06-26",
+      "lastSyncDirection": "ios-to-android"
     }
   ]
 }
