@@ -55,7 +55,7 @@ figma-sync/
 └── ARCHITECTURE.md
 ```
 
-Install: `/plugin marketplace add tidepool/figma-sync` → `/plugin install figma-sync@tidepool`.
+Install: `/plugin marketplace add tidepool-org/figma-sync` → `/plugin install figma-sync@tidepool`.
 
 ## 4. The backbone: registry + mapping
 

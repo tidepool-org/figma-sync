@@ -14,7 +14,7 @@ the team's iOS→Android conventions as a reusable skill + slash commands.
 
 ## Install
 ```
-/plugin marketplace add tidepool/figma-sync
+/plugin marketplace add tidepool-org/figma-sync
 /plugin install figma-sync@tidepool
 ```
 Update later with `/plugin update`. (Repo path during development:
