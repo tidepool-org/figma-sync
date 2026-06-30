@@ -106,7 +106,7 @@ Goal: visual parity with iOS. **Swap family SF Pro → Roboto; keep iOS size, we
 line-height, letter-spacing.** Map weight 1:1 **per text segment** (so mixed runs survive):
 Regular→Regular, Medium→Medium, Semibold→**SemiBold**, Bold→Bold, Light→Light,
 Black/Heavy→Black (+ Italic preserved). For this flow: title = Roboto Bold 34, body/list =
-Roboto Regular 17, CTA label = Roboto SemiBold (white).
+Roboto Regular 17, CTA label = Roboto Medium 16 (white) — see §4.4.
 
 Implementation: iterate `getStyledTextSegments(['fontName'])`; for each segment whose
 family starts with `SF Pro` (or `Work Sans`), `setRangeFontName(start, end, {family:'Roboto', style: mapped})`.
