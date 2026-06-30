@@ -13,3 +13,15 @@ Thumbs.db
 # NOTE: the per-designer working-file mapping is stored OUTSIDE the repo at
 # ~/.figma-sync/mappings.json (user-global), so nothing to ignore here for it.
 # mappings.example.json (committed) documents its schema.
+
+# ApoVault — ignore all local state; commit only team-owned knowledge + shared templates.
+# Allowlist approach: everything under .apo/ is ignored except 01_Knowledge/ (minus _pending/)
+# and 04_Templates/. New transient dirs (inbox/, outbox/, log/, _quarantine-*, etc.) are
+# ignored automatically without enumeration. The **/ prefix matches .apo/ at any depth, so
+# nested monorepo vaults follow the same rules.
+**/.apo/**
+!**/.apo/01_Knowledge/
+!**/.apo/01_Knowledge/**
+**/.apo/01_Knowledge/_pending/
+!**/.apo/04_Templates/
+!**/.apo/04_Templates/**
