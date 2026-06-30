@@ -1,0 +1,15 @@
+{
+  "name": "tidepool",
+  "owner": { "name": "Tidepool" },
+  "metadata": {
+    "description": "Tidepool design-ops tooling for Claude Code."
+  },
+  "plugins": [
+    {
+      "name": "figma-sync",
+      "source": "./",
+      "description": "iOS → Android Figma flow translation and design-system sync.",
+      "version": "0.1.0"
+    }
+  ]
+}

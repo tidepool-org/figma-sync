@@ -1,0 +1,15 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Logs / scratch
+*.log
+/scratch/
+/tmp/
+
+# NOTE: the per-designer working-file mapping is stored OUTSIDE the repo at
+# ~/.figma-sync/mappings.json (user-global), so nothing to ignore here for it.
+# mappings.example.json (committed) documents its schema.

@@ -1,0 +1,20 @@
+{
+  "$comment": "EXAMPLE of the per-designer mapping. The real file lives OUTSIDE the repo at ~/.figma-sync/mappings.json and is created/updated by the figma-sync commands. It records, per flow: the Figma file, the iOS and Android section nodes, and the iOS<->Android screen-node pairs. create-android WRITES it; sync-screens and apply-ds-update READ it.",
+  "version": 1,
+  "flows": [
+    {
+      "name": "A Day in the Life",
+      "fileKey": "zH3mVwhaHag1qhmFF6O4OC",
+      "fileName": "iOS -> Android (Clint's dev copy)",
+      "page": "Onboarding flow",
+      "iosSectionNodeId": "1:9358",
+      "androidSectionNodeId": "4008:3273",
+      "screenPairs": [
+        { "name": "ADITL / 01", "ios": "1:9362", "android": "4008:3275" },
+        { "name": "ADITL / 02", "ios": "1:9403", "android": "4025:3305" }
+      ],
+      "createdAt": "2026-06-26",
+      "lastSyncedAt": "2026-06-26"
+    }
+  ]
+}
