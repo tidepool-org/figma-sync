@@ -44,15 +44,16 @@
   "androidToIos": {
     "$comment": "Constants for the REVERSE workflow (Android source -> iOS target), used by the android-to-ios skill. Grid constants (firstScreenX, screenPitch, screenBaselineY, sectionCornerRadius, sectionStackGap, padding, sidebarWidth) and tokens.brandPrimary are SHARED with the forward workflow above. iOS chrome component keys ship EMPTY: discover them via search_design_system against the iOS DS library on first run and commit them here (empty string = not yet discovered).",
     "iosLibraries": {
-      "$comment": "Discover + fill the published library key(s) for the Tidepool iOS + Apple HIG components.",
+      "$comment": "Discovered: the iOS chrome comes from the published 'Core iOS 17 Components' library (no Tidepool-specific iOS lib or separate Apple HIG lib is published for this org).",
+      "coreIos17": "lk-9f59962a22294cd001029f1f6e83b7d3cab074cd4acedfd2ad1536f04a5b52df6be01665880ae15f0f9f5f6c1018421faacbd41ffcde851cb3f450d904cc3ee3",
       "tidepoolLoopIos": "",
       "appleHig": ""
     },
     "components": {
-      "iosStatusBar":  { "key": "", "library": "appleHig", "type": "component", "note": "iOS status bar (light), 375 wide; may be bundled inside iosModalNav" },
-      "iosModalNav":   { "key": "", "library": "tidepoolLoopIos", "type": "component", "note": "iOS modal-stack nav chrome: inline centered title + leading Back chevron + trailing Close (Loop: '... / Modal Stack / Light')" },
-      "sheetGrabber":  { "key": "", "type": "component", "note": "sheet grabber pill (~36x5, systemGray); discover or draw as a primitive" },
-      "homeIndicator": { "key": "", "type": "component", "note": "iOS home indicator: 375-wide area, centered bar ~134x5 r100; discover or draw as a primitive" }
+      "iosStatusBar":  { "key": "49bcd5ed9c98282f943085b6515387366d553b32", "library": "coreIos17", "type": "component", "note": "'iPhone X, 11 Pro / White' status bar (light, dark content), 375x40; also bundled inside iosModalNav" },
+      "iosModalNav":   { "key": "742b2c41b201fd91e61f8c679a6a189f23fbf5eb", "library": "coreIos17", "type": "component", "note": "'iPhone X, 11 Pro / Modal Stack / Light / Base' (375x110): bundles status bar (375x40) + nav '.Left, Title, Right / Light' (375x42, key ae8ed46dfa95964f012b6f75c5ad95a650b70a29) + secondary-sheet card peek. Nav has NO component props; toggle child .visible + edit text directly. Default: Title + Left Accessory (chevron+'Left Title') visible, both Right Accessories hidden." },
+      "sheetGrabber":  { "key": "", "type": "component", "note": "N/A for modal-stack presentation: the Modal Stack chrome conveys sheet presentation via the secondary-sheet card peek, not a grabber pill. Only add a drawn grabber primitive (~36x5 systemGray) for true page-sheet flows." },
+      "homeIndicator": { "key": "", "type": "primitive", "note": "Not a published component; drawn as a primitive: 375-wide x 34 frame, centered bar 134x5 r100 near-black (#000 ~ opacity 1)." }
     },
     "typography": {
       "sourceFamilyPrefixes": ["Roboto"],
