@@ -168,15 +168,21 @@ platform's DS, and where the iOS DS is silent, match the Android weight/size/spa
 - **Inline centered title** = flow name, SF Pro Text Semibold 17. Set the visible title text
   node's `characters` directly — **don't scrape it**: the iOS modal-nav component bundles stale
   example titles (e.g. "Attach Infusion Assembly"), exactly like the Android app bar did.
-- **Leading = Back chevron (‹) top-left**, brand tint (`tokens.brandPrimary`). **Hide** when
+- **Leading = back affordance**, top-left, per `androidToIos.header.back` — render the `icon`
+  (e.g. chevron `‹`) and, when `label` is set, the label beside it; tint via `back.tint`
+  (`tokens.brandPrimary`). When a label is present and `labelStyleMatchesTrailing` is true, style
+  the label to match the trailing action's text node (same family/size/weight). **Hide** when
   there's no back action.
-- **Trailing = Close top-right** — a text button "Close" (or ✕), brand tint, on **every** screen.
+- **Trailing action**, top-right, per `androidToIos.header.trailing` — a text button (e.g.
+  "Close", or ✕) tinted `trailing.tint`, shown per `showOnEveryScreen`.
 
-**Per-screen header rule (mirror of forward):** Close on **every** screen; Back chevron on every
-screen **except the first**.
+**Per-screen header rule (mirror of forward):** the trailing action follows
+`header.trailing.showOnEveryScreen`; the back affordance appears on every screen **except the
+first** (`header.back.showOnFirstScreen: false`).
 
 **Build tip:** configure the nav once on screen 1, then **clone that nav instance** for the rest;
-per screen set the title text node and show the Back chevron (skip on screen 1).
+per screen set the title text node and show the back affordance (skip on screen 1). When the back
+uses a label, set it from `header.back.label` in the trailing action's text style.
 
 ### 4.4 Primary CTA button
 Build a **full-width filled iOS button** (or the iOS DS button if governance requires): vertical
@@ -230,8 +236,9 @@ pill, on iOS a radius-8 button and the nav tint.
   `setRangeFontName`.
 - **Inline title ≠ a `title` property** — set the visible nav title text node's `characters`
   directly, and don't scrape it (the modal-nav component carries stale example titles).
-- **Close is on every screen; Back chevron is hidden on screen 1** — when cloning a configured
-  nav, remember to *show* the chevron on screens 2+.
+- **Trailing action is on every screen; the back affordance is hidden on screen 1** — when cloning
+  a configured nav, remember to *show* the back accessory (icon + label per
+  `androidToIos.header.back`) on screens 2+.
 - **CTA label — read only from the visible `Button / Primary`** subtree, checking *ancestor*
   visibility. Hidden sibling frames can carry a stale duplicate label.
 - **Cloned Android frames carry Android strokes/fills** — audit and clear.

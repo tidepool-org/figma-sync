@@ -76,6 +76,11 @@
     "tokens": {
       "iosSectionBackground": "#565656",
       "sidebarTextOnDark": "#FFFFFF"
+    },
+    "header": {
+      "$comment": "Loop iOS nav-affordance conventions consumed by the android-to-ios header rule (§4.3). The skill teaches the method generically and references these values; this is where the specific Loop choices live.",
+      "back": { "icon": "chevron", "label": "Back", "labelStyleMatchesTrailing": true, "tint": "brandPrimary", "showOnFirstScreen": false },
+      "trailing": { "label": "Close", "tint": "brandPrimary", "showOnEveryScreen": true }
     }
   }
 }
