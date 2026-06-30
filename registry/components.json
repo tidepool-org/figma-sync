@@ -40,5 +40,41 @@
     "sectionStackGap": 800,
     "columnAlignAcrossSections": true,
     "$layoutNote": "Sections stack vertically, left-aligned (iOS on top). Both sections share firstScreenX + screenPitch so iOS/Android screen pairs column-align; re-space iOS (often ~415 pitch) to 460. Keep true device widths (iOS 375 / Android 412), left-aligned. Equalize section widths."
+  },
+  "androidToIos": {
+    "$comment": "Constants for the REVERSE workflow (Android source -> iOS target), used by the android-to-ios skill. Grid constants (firstScreenX, screenPitch, screenBaselineY, sectionCornerRadius, sectionStackGap, padding, sidebarWidth) and tokens.brandPrimary are SHARED with the forward workflow above. iOS chrome component keys ship EMPTY: discover them via search_design_system against the iOS DS library on first run and commit them here (empty string = not yet discovered).",
+    "iosLibraries": {
+      "$comment": "Discover + fill the published library key(s) for the Tidepool iOS + Apple HIG components.",
+      "tidepoolLoopIos": "",
+      "appleHig": ""
+    },
+    "components": {
+      "iosStatusBar":  { "key": "", "library": "appleHig", "type": "component", "note": "iOS status bar (light), 375 wide; may be bundled inside iosModalNav" },
+      "iosModalNav":   { "key": "", "library": "tidepoolLoopIos", "type": "component", "note": "iOS modal-stack nav chrome: inline centered title + leading Back chevron + trailing Close (Loop: '... / Modal Stack / Light')" },
+      "sheetGrabber":  { "key": "", "type": "component", "note": "sheet grabber pill (~36x5, systemGray); discover or draw as a primitive" },
+      "homeIndicator": { "key": "", "type": "component", "note": "iOS home indicator: 375-wide area, centered bar ~134x5 r100; discover or draw as a primitive" }
+    },
+    "typography": {
+      "sourceFamilyPrefixes": ["Roboto"],
+      "targetTextFamily": "SF Pro Text",
+      "targetDisplayFamily": "SF Pro Display",
+      "displaySizeThreshold": 20,
+      "weightMap": { "Thin": "Thin", "Light": "Light", "Regular": "Regular", "Medium": "Medium", "SemiBold": "Semibold", "Bold": "Bold", "Black": "Black" },
+      "rule": "Swap family only; pick SF Pro Text when fontSize < displaySizeThreshold else SF Pro Display; preserve Android size, weight (mapped per-segment), line-height, letter-spacing. NOTE: SF Pro's semibold style is spelled 'Semibold' (one word), not Roboto's 'SemiBold'."
+    },
+    "layout": {
+      "iosScreenWidth": 375,
+      "iosScreenCornerRadius": 0,
+      "iosDeviceHeight": 812,
+      "contentMargin": 16,
+      "ctaCornerRadius": 8,
+      "ctaHeight": 54,
+      "homeIndicatorHeight": 34,
+      "$note": "Reuse the shared registry.layout grid keys (firstScreenX, screenPitch, screenBaselineY, sectionCornerRadius, sectionStackGap, sectionTop/BottomPadding, sidebarWidth). iOS device-vs-scroll threshold is iosDeviceHeight (812) vs the Android 892."
+    },
+    "tokens": {
+      "iosSectionBackground": "#565656",
+      "sidebarTextOnDark": "#FFFFFF"
+    }
   }
 }

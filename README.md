@@ -1,8 +1,8 @@
 # figma-sync
 
-A Claude Code **plugin** for translating iOS-designed Figma flows into matching
-**Android (Material 3)** sections — and (planned) keeping platforms in sync as design
-specs evolve. Built for Tidepool's design team.
+A Claude Code **plugin** for translating Figma flows between **iOS (Apple HIG)** and
+**Android (Material 3)** — in **either direction** — and (planned) keeping platforms in sync
+as design specs evolve. Built for Tidepool's design team.
 
 It rides on the **official Figma MCP** (it does not ship its own MCP server), and encodes
 the team's iOS→Android conventions as a reusable skill + slash commands.
@@ -24,12 +24,14 @@ Update later with `/plugin update`. (Repo path during development:
 | Command | Status | What it does |
 |---|---|---|
 | `/figma-sync:create-android [figma url]` | ✅ ready | Create an Android section translating an existing iOS flow |
+| `/figma-sync:create-ios [figma url]` | ✅ ready | Create an iOS section translating an existing Android flow |
 | `/figma-sync:sync-screens [flow]` | 🚧 planned | Propagate iOS screen edits to their Android counterparts |
 | `/figma-sync:apply-ds-update [ios\|android] [change]` | 🚧 planned | Roll a design-system change across all mapped files |
 
 ## How it works
-- **`skills/ios-to-android/`** — the authoritative conventions (layout, typography, header
-  rules, component usage, gotchas). Claude follows this when building.
+- **`skills/ios-to-android/`** and **`skills/android-to-ios/`** — the authoritative conventions
+  (layout, typography, header rules, component usage, gotchas) for each direction. Claude follows
+  the matching one when building.
 - **`registry/components.json`** — versioned design-system constants (library + component
   keys, tokens, layout values). Update this when iOS/Android ship new specs.
 - **`~/.figma-sync/mappings.json`** — per-designer, user-global record of which files/sections
@@ -37,8 +39,9 @@ Update later with `/plugin update`. (Repo path during development:
   commands; no git knowledge required. Schema: [`mappings.example.json`](./mappings.example.json).
 
 ## Notes
-- **Derive, don't copy.** The Android design is derived only from the iOS screens + the
-  Android/Material design systems — never from a pre-existing Android section.
-- The two sections are **stacked vertically, left-aligned** (iOS on top) for easy comparison.
+- **Derive, don't copy.** The target design is derived only from the source screens + the
+  target platform's design system — never from a pre-existing target section.
+- The two sections are **stacked vertically, left-aligned** — **source on top** (iOS for
+  `create-android`, Android for `create-ios`) — for easy comparison.
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the design rationale and roadmap.

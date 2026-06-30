@@ -1,6 +1,6 @@
 # figma-sync — Architecture & Roadmap
 
-Design rationale for packaging Tidepool's iOS→Android Figma workflow as a Claude Code
+Design rationale for packaging Tidepool's iOS↔Android Figma workflow as a Claude Code
 plugin, and the roadmap for the workflows beyond the first.
 
 ---
@@ -14,8 +14,8 @@ We chose a plugin because we need:
   conventions. No "which file is current?" confusion.
 - **Namespaced slash commands** as entry points (`/figma-sync:create-android`) — a bare skill
   can't provide these.
-- **Room to grow** — three workflows (create / sync / apply-DS-update) plus shared state, all
-  under one installable unit.
+- **Room to grow** — multiple workflows (create in both directions / sync / apply-DS-update)
+  plus shared state, all under one installable unit.
 
 A bare project-skill would only make sense for one-off personal use. It can't be installed
 team-wide as a unit and offers no command surface or versioning.
@@ -41,13 +41,16 @@ figma-sync/
 │   ├── plugin.json            # name, version (semver), description
 │   └── marketplace.json       # makes the repo installable (name: "tidepool")
 ├── commands/                  # the verbs (entry points)
-│   ├── create-android.md      # ✅ ready
+│   ├── create-android.md      # ✅ ready  (iOS → Android)
+│   ├── create-ios.md          # ✅ ready  (Android → iOS)
 │   ├── sync-screens.md        # 🚧 planned
 │   └── apply-ds-update.md     # 🚧 planned
 ├── skills/
-│   └── ios-to-android/SKILL.md  # the authoritative conventions playbook
+│   ├── ios-to-android/SKILL.md  # forward-direction conventions playbook
+│   └── android-to-ios/SKILL.md  # reverse-direction conventions playbook
 ├── agents/
-│   └── screen-builder.md      # offload/parallelize per-screen building
+│   ├── screen-builder.md      # offload/parallelize per-screen building (→ Android)
+│   └── screen-builder-ios.md  # offload/parallelize per-screen building (→ iOS)
 ├── registry/
 │   └── components.json        # versioned DS constants (keys, tokens, layout)
 ├── mappings.example.json      # schema for the user-global mapping
@@ -84,11 +87,13 @@ in the repo documents the schema.)
 | Workflow | Command | Status | Core idea |
 |---|---|---|---|
 | Create Android section | `create-android` | ✅ | Translate an iOS flow where no Android exists; write the mapping |
+| Create iOS section | `create-ios` | ✅ | Reverse direction: translate an Android flow where no iOS exists; write the mapping |
 | Sync iOS → Android | `sync-screens` | 🚧 | Re-run the translation for content that changed on iOS, per the mapping |
 | Apply DS update | `apply-ds-update` | 🚧 | Edit the registry, fan out one agent per mapped file to re-apply |
 
-All three share the `ios-to-android` skill (conventions), the registry (constants), and the
-mapping (targets/pairs).
+The create workflows share the registry (constants) and the mapping (targets/pairs); each uses
+its direction's skill (`ios-to-android` / `android-to-ios`). The two skills are mirrors —
+forward keys live at the top of the registry, reverse keys under `androidToIos`.
 
 ## 6. Distribution & versioning
 - Single GitHub repo is both the marketplace and the plugin (`source: "./"`).
@@ -116,5 +121,8 @@ mapping (targets/pairs).
 - **Ride on the official Figma MCP**; do not bundle one. *(interactive auth)*
 - **Mapping is user-global** at `~/.figma-sync/mappings.json`. *(no git knowledge needed)*
 - **Registry is committed & versioned** as the DS source of truth and DS-change audit log.
-- **Sections stacked vertically, left-aligned** (iOS on top) for comparison.
-- **Derive, don't copy** from any existing Android reference.
+- **Sections stacked vertically, left-aligned** (source on top) for comparison.
+- **Derive, don't copy** from any existing target-platform reference.
+- **Bidirectional, mirrored skills.** `create-ios` mirrors `create-android`; reverse iOS DS
+  constants live under the registry's `androidToIos` block and ship with empty component keys
+  to be discovered against the iOS DS library and committed on first run.
