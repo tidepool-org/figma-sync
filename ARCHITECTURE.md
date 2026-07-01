@@ -109,14 +109,17 @@ forward keys live at the top of the registry, reverse keys under `androidToIos`.
   mapping write. Installable; designers can use it today.
 - **Phase 2 (shipped):** `sync-screens`. Content-change detection stores **per-side content
   snapshots** in the mapping and diffs live content against them to attribute *who* changed.
-  Sync is **bidirectional**, propagates **content only** (chrome and type family differ by
-  platform by design), and protects intentional counterpart edits via **conflict handling**
-  (both-sides-edited → ask; unresolved conflicts skipped). Rollback is **plugin-side**:
-  content-only deltas restore from the snapshot, structural deltas from a hidden in-canvas
-  duplicate (keep-last-1). It deliberately **does not** use Figma's REST version-history API —
-  there is no node-level edit history and no programmatic version create/restore, so the
-  snapshot doubles as the drift baseline and the rollback record. Structural propagation
-  (building/deleting screens) is deferred.
+  Sync is **bidirectional**, propagates **content and screen-level structural** deltas (chrome
+  and type family differ by platform by design and are never drift), and protects intentional
+  counterpart edits via **conflict handling** (both-sides-edited → ask; unresolved conflicts
+  skipped). **Structural propagation is in scope**: a screen the source added is built on the
+  target via the `create-*` path, a screen it removed is deleted from the target — each approved
+  per screen (a removal is destructive), and `screenPairs` reconciled afterward. Rollback is
+  **plugin-side**: content-only deltas restore from the snapshot; a screen removal (or wholesale
+  re-clone) from a hidden in-canvas duplicate; a screen build by removing the built node
+  (keep-last-1). It deliberately **does not** use Figma's REST version-history API — there is no
+  node-level edit history and no programmatic version create/restore, so the snapshot doubles as
+  the drift baseline and the rollback record.
 - **Phase 3:** `apply-ds-update`. Multi-file fan-out (agent per file), delta semantics
   (targeted patch vs full re-apply), idempotency, and rollback.
 
@@ -143,10 +146,13 @@ forward keys live at the top of the registry, reverse keys under `androidToIos`.
   constants live under the registry's `androidToIos` block and ship with empty component keys
   to be discovered against the iOS DS library and committed on first run.
 - **Sync is bidirectional** (default iOS → Android), routed through the matching direction
-  skill; propagates **content deltas only**.
+  skill; propagates **content and screen-level structural deltas**.
 - **Rollback is plugin-side** — the snapshot for content-only deltas, a hidden in-canvas
-  duplicate for structural ones — **never** Figma's REST version API.
+  duplicate before a removal or wholesale re-clone, the built node id for a new screen —
+  **never** Figma's REST version API.
 - **Plan-then-approve gate** — no mutation before the designer explicitly approves the
   presented sync plan.
-- **Conflicts and structural changes ask the designer** — no silent clobber; no auto
-  build/delete of screens in v1.
+- **Conflicts and structural changes ask the designer** — no silent clobber and no auto
+  build/delete on a guess; structural actions are proposed in the plan and run only on explicit
+  approval (a screen **removal** is destructive and approved per screen), backed up and
+  reversible.

@@ -1,14 +1,14 @@
 ---
 name: drift-sync
-description: Detect iOS↔Android content drift for a mapped Figma flow, produce a reviewable sync plan, and — once the designer approves — propagate the content deltas in either direction with an in-canvas/snapshot rollback. Covers screen enumeration, the content-vs-chrome boundary, the divergence algorithm, the per-side snapshot format, direction handling, the sync-plan format, backup/restore, delta application, and conflict execution. Detection is read-only; propagation writes via the Figma MCP. Use during sync-screens.
+description: Detect iOS↔Android content drift for a mapped Figma flow, produce a reviewable sync plan, and — once the designer approves — propagate the content and screen-level structural deltas in either direction with an in-canvas/snapshot rollback. Covers screen enumeration and structural reconciliation, the content-vs-chrome boundary, the divergence algorithm, the per-side snapshot format, direction handling, the sync-plan format, backup/restore, content and structural delta application, and conflict execution. Detection is read-only; propagation writes via the Figma MCP. Use during sync-screens.
 ---
 
 # Drift detection, sync-plan generation & propagation
 
 The authoritative playbook for the **full** sync workflow: **detect** where a mapped
 iOS↔Android flow's **content** has diverged and emit a reviewable **sync plan** (read-only),
-then — after the designer approves — **propagate** the content deltas in the chosen direction
-with a backup/rollback safety net.
+then — after the designer approves — **propagate** the content and screen-level structural
+deltas in the chosen direction with a backup/rollback safety net.
 
 **The two halves differ on writes.** Detection (§0–§6) makes **no Figma edits** — it
 enumerates, reads, compares, and reports. Propagation (§7–§10) writes, and **only ever after
@@ -47,10 +47,21 @@ silently drops).
 1. Read-only `use_figma` returning `iosSection.children` and `androidSection.children`
    (`id / name / type / x / y / w / h`). Drop the `Status` sidebar; sort each by `x`.
 2. **Pair by the stored `screenPairs` node ids** in the mapping — not by name or order.
-3. Reconcile against the live children:
-   - A live child whose id is in **neither** side's `screenPairs` → an **added** screen.
-   - A stored `screenPairs` id **absent** from the section's live children → a **removed** screen.
-   - Added/removed screens are **flagged and asked**, never built or deleted in this workflow.
+3. Reconcile against the live children — added / removed screens are **structural deltas**
+   (screen-set changes, as opposed to a paired screen's content), and they are **in scope**
+   for propagation (§8.1). Classify each, oriented by the resolved direction (source → target):
+   - A live **source** child whose id is in no `screenPair` → a **source-add**: the source
+     gained a screen the target lacks → **build** the target twin (additive).
+   - A live **target** child whose id is in no `screenPair` → a **target-orphan**: the target
+     has a screen the source lacks → **remove** it from the target to mirror the source (or, if
+     the designer flips the direction, reverse-add it to the source).
+   - A `screenPair` whose **source** id is absent live → the source screen was **deleted** →
+     remove the now-orphaned target twin and drop the pair.
+   - A `screenPair` whose **target** id is absent live → the target twin was deleted while the
+     source remains → **rebuild** the target twin (additive) and refresh the pair.
+   Structural deltas are **carried into the plan** with a proposed **build** / **remove** action
+   (§6) and are **never mutated before approval + backup** (§7). A **removal is destructive**,
+   so it is executed only when the designer **explicitly approves that screen** (§9).
 
 ---
 
@@ -140,29 +151,36 @@ mutation**. Structure it per screen pair, plus an overall summary.
 - **detected delta fields** — which of `text / images / structure / CTA label / screen fill`
   diverged.
 - **conflict flag** — whether both sides were edited, and **which side(s)**.
-- **structural notes** — added / removed screens; terminal screen with no CTA / no top chrome.
-- **proposed action** — e.g. *propagate text + image, source → counterpart*; or *conflict —
+- **structural note** — a structural delta (§1): the proposed **build** (missing target twin)
+  or **remove** (orphaned target screen) action, its direction, and — for a removal — an
+  explicit **destructive** flag; plus terminal-screen notes (no CTA / no top chrome).
+- **proposed action** — e.g. *propagate text + image, source → counterpart*; or *build target
+  twin, source → target*; or *remove orphaned target screen (destructive)*; or *conflict —
   needs a decision*; or *no change*.
 
-**Overall summary:** number of pairs; how many carry deltas; how many are conflicts; added /
-removed screen counts; the resolved direction. Close by inviting refinement and stating
-plainly that **no edits were made**.
+**Overall summary:** number of pairs; how many carry content deltas; how many are conflicts;
+added / removed screen counts (each with its proposed build / remove action); the resolved
+direction. Close by inviting refinement and stating plainly that **no edits were made**.
 
 ---
 
 ## 7. Backup before mutating
 
 **Nothing is mutated until a backup exists.** Take the backup **once per run**, before the
-first write, and key it to the delta type:
+first write, and key it to what the delta will change:
 
-- **Content-only deltas** (text / image / fill / CTA label): the per-side content snapshot in
-  `mappings.json` (§4) **is** the backup — no canvas node is needed. Restore re-writes those
-  snapshot fields back onto the target's content surface.
-- **Structural deltas** (the sync must re-clone `Content AL` wholesale): **duplicate** the
+- **Content-only deltas** (text / image / fill / CTA label, no content-structure change): the
+  per-side content snapshot in `mappings.json` (§4) **is** the backup — no canvas node is
+  needed. Restore re-writes those snapshot fields back onto the target's content surface.
+- **Structure-changing deltas** — a content delta whose **structure** field changed (the sync
+  must re-clone `Content AL` wholesale), **or** a **screen removal** (§8.1): **duplicate** the
   affected target screen(s) into a **hidden frame** (`visible=false`) on the page, named for
   the run (e.g. `backup — <flow> — <run>`), and record the backup node id **plus** the
   snapshot in `mappings.json`. Restore swaps the duplicate back **wholesale** — re-link it into
-  the section and re-snap it to the pair's x/y slot.
+  the section and re-snap it to the pair's x/y slot; for a removal, this un-deletes the screen.
+- **Screen builds** (§8.1 — a source-add or a target-twin rebuild): nothing pre-exists to
+  duplicate, so the rollback record is the **built node id** — record it in `mappings.json`.
+  Restore **removes** the built node and drops its new `screenPair`.
 
 The hidden frame keeps the column-aligned section layout undisturbed (it never occupies a
 screen slot). **keep-last-1:** on a successful run, retain only the most recent backup per flow
@@ -170,7 +188,7 @@ and delete any older backup frame.
 
 ---
 
-## 8. Applying an approved delta
+## 8. Applying an approved content delta
 
 For each **clean** screen delta in the approved plan, re-run **only the content steps** of the
 matching direction skill — leaving chrome and platform conventions intact:
@@ -192,6 +210,27 @@ The **golden rule** still holds — derive from the source + the target design s
 **never invent UI the source lacks** (a terminal screen has no CTA / toolbar; do not add one).
 Work in **atomic ≤10-op batches** and **screenshot between batches**.
 
+### 8.1 Applying an approved structural delta
+
+Structural deltas change the target's **screen set**, not just a screen's content. Execute only
+the actions the designer approved (§9), in the resolved direction:
+
+- **Build** (source-add / target-twin rebuild): construct the target screen the **same way the
+  `create-*` commands do** — route to the matching direction skill (`ios-to-android` for
+  iOS → Android, `android-to-ios` for the reverse), or offload to the `screen-builder` /
+  `screen-builder-ios` agent — passing the source screen node id, its order, and `hasBack`.
+  Slot the new screen into the target section at the **column-aligned x/y** for its order
+  (registry `firstScreenX` + `screenPitch`, `screenBaselineY`), re-spacing neighbors if needed.
+  This is a **`create-*` build, not a content sync** — build full chrome + CTA from the target
+  DS while deriving the content from the source; **never invent UI the source lacks**.
+- **Remove** (target-orphan / source-deleted twin): after the backup exists (§7), delete the
+  target screen and re-close the column gap so the layout stays aligned. **Destructive —
+  approved per screen only.**
+
+Then reconcile the mapping (§10): **add** a `screenPair` (with fresh both-side snapshots) for
+each built screen; **drop** the `screenPair` for each removed screen. Work in **atomic ≤10-op
+batches** and **screenshot between**.
+
 ---
 
 ## 9. Conflict execution
@@ -201,8 +240,11 @@ per-field). **Never re-ask** at execution time and **never fall back to a silent
 
 - A conflict the plan left **unresolved** is **not eligible** for mutation — skip that pair and
   report it; do not guess.
-- **Structural surprises** (added / removed screens) are out of scope for v1 propagation —
-  flag them, never auto-build or auto-delete.
+- **Structural deltas** (added / removed screens, §1 & §8.1) are **in scope**: execute the
+  **build** / **remove** the designer approved. A structural delta the plan left **unapproved**
+  is **skipped** and reported — never auto-build or auto-delete on a guess. A **removal**
+  requires the designer's **explicit per-screen approval** (it is destructive) and a backup
+  (§7) before it runs.
 
 ---
 
@@ -210,11 +252,16 @@ per-field). **Never re-ask** at execution time and **never fall back to a silent
 
 After a screen's content is applied and screenshot-verified:
 
-1. **Rewrite both per-side snapshots** for the pair — source and target now agree, so this
-   re-baselines the drift comparison **and** refreshes the rollback record (§4).
-2. **Update the flow** `lastSyncedAt` (today) and `lastSyncDirection` (the direction just run).
-3. **Verify each touched screen** against the source's content. On a mismatch, **restore from
-   the backup** (§7) and report the failure — **never leave a silent partial apply.**
+1. **Rewrite both per-side snapshots** for each synced pair — source and target now agree, so
+   this re-baselines the drift comparison **and** refreshes the rollback record (§4).
+2. **Reconcile `screenPairs` for structural deltas** — **add** a new pair (both node ids +
+   fresh both-side snapshots) for each **built** screen; **remove** the pair for each
+   **removed** screen.
+3. **Update the flow** `lastSyncedAt` (today) and `lastSyncDirection` (the direction just run).
+4. **Verify each touched screen** against the source's content — for a **build**, verify the
+   new target screen against its source; for a **removal**, verify the screen is gone and the
+   column re-closed. On a mismatch, **restore from the backup** (§7) and report the failure —
+   **never leave a silent partial apply.**
 
 Run the **keep-last-1** backup cleanup (§7) only after the whole run succeeds.
 
@@ -238,10 +285,18 @@ Run the **keep-last-1** backup cleanup (§7) only after the whole run succeeds.
   not an inherited stroke artifact.
 - **Snapshots are content-only** — a chrome or font-family difference is never drift, with or
   without a snapshot.
-- **Never mutate before a backup exists** — content-only deltas back up via the snapshot;
-  structural deltas need the hidden duplicate frame first (§7).
-- **Apply content only** — re-clone `Content AL` + re-font + fill + CTA label; do **not** rebuild
-  chrome or re-translate the whole screen (that is a `create-*` job, not a sync).
+- **Never mutate before a backup exists** — content-only deltas back up via the snapshot; a
+  screen removal (or a structure-changing content delta) needs the hidden duplicate frame
+  first; a screen build records its built node id as the rollback record (§7).
+- **A content delta applies content only** — re-clone `Content AL` + re-font + fill + CTA label;
+  do **not** rebuild chrome or re-translate the whole screen. Rebuilding a whole screen is a
+  **structural** delta (§8.1) that routes through the `create-*` build path — not a content sync.
+- **Structural deltas are in scope, but a removal is destructive** — build a missing target
+  twin via the `create-*` path and slot it at the column-aligned x/y; delete an orphaned target
+  screen only after the hidden-duplicate backup and the designer's **explicit per-screen**
+  approval, then re-close the column gap. Never auto-build or auto-delete on a guess.
+- **A built screen needs a new `screenPair` (with snapshots); a removed screen's pair is
+  dropped** — otherwise the next detection pass re-flags the same structural delta.
 - **Execute the designer's conflict choice verbatim** — no re-asking, no silent default; an
   unresolved conflict is skipped and reported, never guessed.
 - **Backups live in a hidden frame** (`visible=false`) so they never occupy a screen slot or

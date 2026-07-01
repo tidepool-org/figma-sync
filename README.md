@@ -47,10 +47,13 @@ Update later with `/plugin update`. (Repo path during development:
 **Syncing screens.** `sync-screens` is **bidirectional** (default iOS → Android). It reads the
 mapping, diffs live content against the per-side snapshots to attribute *who* changed, and
 presents a plan; on explicit approval it backs up the target (the snapshot for content-only
-deltas, a hidden in-canvas duplicate for structural ones), propagates only the **content**
+deltas, a hidden in-canvas duplicate before a screen removal or wholesale re-clone, the built
+node id for a new screen), propagates the approved **content and screen-level structural**
 deltas through the matching direction skill, verifies, and re-baselines the snapshots. A bad
 result restores from the backup. Chrome and font family differ by platform *by design* and are
-never treated as drift; structural propagation (adding/deleting screens) is deferred.
+never treated as drift. **Structural changes are in scope**: a screen the source added is built
+on the target and a screen it removed is deleted from the target — each approved per screen (a
+removal is destructive), backed up, and reversible.
 
 ## Notes
 - **Derive, don't copy.** The target design is derived only from the source screens + the
