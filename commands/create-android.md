@@ -1,6 +1,6 @@
 ---
 description: Create an Android (Material 3) section from an existing iOS section in a Figma file
-argument-hint: "[figma url or file key]"
+argument-hint: "[figma url or file key] [optional freeform hints]"
 ---
 
 Create a new **ANDROID Section** that translates an existing iOS flow, in the Figma file referenced by: $ARGUMENTS
@@ -10,6 +10,7 @@ Follow the **`figma-sync:ios-to-android`** skill as the authoritative playbook. 
 ## 1. Preflight (do not skip)
 - Confirm the Figma MCP is available and authenticated: call `mcp__plugin_figma_figma__whoami`. If it fails, stop and tell the user to open Figma desktop, enable the MCP server, and sign in. (This plugin rides on the official Figma MCP — it does **not** provide its own.)
 - Resolve the target from `$ARGUMENTS` (a figma.com URL or a file key). If none was given, ask the user for the file URL.
+- Capture any **freeform hint text** trailing the file reference in `$ARGUMENTS` (e.g. "titles are sentence case", "skip the End screen"). Honor it as **additional per-run guidance**, subordinate to the golden rule (derive, don't copy) and the skill's conventions / the registry source-of-truth — a hint steers the build, it never overrides them.
 - Read the design-system constants from `${CLAUDE_PLUGIN_ROOT}/registry/components.json` (library + component keys, tokens, layout values). Use those keys — do not re-discover by search unless a key is missing/stale.
 
 ## 2. Idempotency guard

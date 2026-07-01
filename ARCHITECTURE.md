@@ -43,11 +43,12 @@ figma-sync/
 ├── commands/                  # the verbs (entry points)
 │   ├── create-android.md      # ✅ ready  (iOS → Android)
 │   ├── create-ios.md          # ✅ ready  (Android → iOS)
-│   ├── sync-screens.md        # 🚧 planned
+│   ├── sync-screens.md        # ✅ ready  (bidirectional content sync + rollback)
 │   └── apply-ds-update.md     # 🚧 planned
 ├── skills/
 │   ├── ios-to-android/SKILL.md  # forward-direction conventions playbook
-│   └── android-to-ios/SKILL.md  # reverse-direction conventions playbook
+│   ├── android-to-ios/SKILL.md  # reverse-direction conventions playbook
+│   └── drift-sync/SKILL.md      # detect drift, plan, propagate + rollback
 ├── agents/
 │   ├── screen-builder.md      # offload/parallelize per-screen building (→ Android)
 │   └── screen-builder-ios.md  # offload/parallelize per-screen building (→ iOS)
@@ -74,7 +75,9 @@ Per-designer record of work done: for each flow, the `fileKey`, page, iOS + Andr
 node ids, and the **iOS↔Android `screenPairs`**.
 
 - `create-android` **writes** it after a build.
-- `sync-screens` **reads** the pairs to know which Android node mirrors a changed iOS node.
+- `sync-screens` **reads** the pairs to find each side's counterpart, **reads** the per-side
+  content snapshots as the drift baseline + rollback record, and **rewrites** the snapshots +
+  `lastSyncedAt` / `lastSyncDirection` after a successful sync.
 - `apply-ds-update` **reads** it to enumerate target files.
 
 **Why user-global, not repo-local:** designers install via standard Claude commands and may
@@ -88,7 +91,7 @@ in the repo documents the schema.)
 |---|---|---|---|
 | Create Android section | `create-android` | ✅ | Translate an iOS flow where no Android exists; write the mapping |
 | Create iOS section | `create-ios` | ✅ | Reverse direction: translate an Android flow where no iOS exists; write the mapping |
-| Sync iOS → Android | `sync-screens` | 🚧 | Re-run the translation for content that changed on iOS, per the mapping |
+| Sync screens (either direction) | `sync-screens` | ✅ | Detect content drift, present a plan, then propagate the approved deltas either way with a snapshot/rollback safety net |
 | Apply DS update | `apply-ds-update` | 🚧 | Edit the registry, fan out one agent per mapped file to re-apply |
 
 The create workflows share the registry (constants) and the mapping (targets/pairs); each uses
@@ -104,15 +107,28 @@ forward keys live at the top of the registry, reverse keys under `androidToIos`.
 ## 7. Roadmap / phasing
 - **Phase 1 (now):** `create-android` wrapping the proven workflow + the skill + registry +
   mapping write. Installable; designers can use it today.
-- **Phase 2:** `sync-screens`. Needs a reliable **iOS-change detection** strategy — likely
-  storing per-screen content fingerprints in the mapping at build time and diffing on sync.
-  Must avoid clobbering intentional Android-only tweaks (conflict handling).
+- **Phase 2 (shipped):** `sync-screens`. Content-change detection stores **per-side content
+  snapshots** in the mapping and diffs live content against them to attribute *who* changed.
+  Sync is **bidirectional**, propagates **content only** (chrome and type family differ by
+  platform by design), and protects intentional counterpart edits via **conflict handling**
+  (both-sides-edited → ask; unresolved conflicts skipped). Rollback is **plugin-side**:
+  content-only deltas restore from the snapshot, structural deltas from a hidden in-canvas
+  duplicate (keep-last-1). It deliberately **does not** use Figma's REST version-history API —
+  there is no node-level edit history and no programmatic version create/restore, so the
+  snapshot doubles as the drift baseline and the rollback record. Structural propagation
+  (building/deleting screens) is deferred.
 - **Phase 3:** `apply-ds-update`. Multi-file fan-out (agent per file), delta semantics
   (targeted patch vs full re-apply), idempotency, and rollback.
 
-## 8. Open questions (to resolve before Phase 2/3)
-- iOS-diff representation: node-hash snapshots vs content fingerprints in the mapping.
-- Protecting manual Android edits during sync (merge/conflict policy).
+## 8. Open questions
+
+**Resolved for Phase 2:**
+- **Diff representation** → per-side **content snapshots** in the mapping (text / imageRefs /
+  structHash / CTA label / screen fill), not node hashes.
+- **Protecting manual edits** → both-sides-edited **conflicts** are flagged and asked;
+  unresolved conflicts are skipped, never clobbered.
+
+**Still open (Phase 3):**
 - DS-update "delta" semantics and per-file versioning/rollback.
 - Whether to add a `validate`/`audit` command (drift check between iOS, Android, and registry).
 
@@ -126,3 +142,11 @@ forward keys live at the top of the registry, reverse keys under `androidToIos`.
 - **Bidirectional, mirrored skills.** `create-ios` mirrors `create-android`; reverse iOS DS
   constants live under the registry's `androidToIos` block and ship with empty component keys
   to be discovered against the iOS DS library and committed on first run.
+- **Sync is bidirectional** (default iOS → Android), routed through the matching direction
+  skill; propagates **content deltas only**.
+- **Rollback is plugin-side** — the snapshot for content-only deltas, a hidden in-canvas
+  duplicate for structural ones — **never** Figma's REST version API.
+- **Plan-then-approve gate** — no mutation before the designer explicitly approves the
+  presented sync plan.
+- **Conflicts and structural changes ask the designer** — no silent clobber; no auto
+  build/delete of screens in v1.

@@ -1,18 +1,24 @@
 ---
 name: drift-sync
-description: Detect iOS↔Android content drift for a mapped Figma flow and produce a reviewable sync plan — read-only. Covers screen enumeration, the content-vs-chrome boundary, the divergence algorithm, the per-side snapshot format, direction handling, and the sync-plan format the sync-screens command presents. Use during sync-screens detection (via the Figma MCP, read-only use_figma).
+description: Detect iOS↔Android content drift for a mapped Figma flow, produce a reviewable sync plan, and — once the designer approves — propagate the content deltas in either direction with an in-canvas/snapshot rollback. Covers screen enumeration, the content-vs-chrome boundary, the divergence algorithm, the per-side snapshot format, direction handling, the sync-plan format, backup/restore, delta application, and conflict execution. Detection is read-only; propagation writes via the Figma MCP. Use during sync-screens.
 ---
 
-# Drift detection & sync-plan generation
+# Drift detection, sync-plan generation & propagation
 
-The authoritative playbook for the **read-only half** of the sync workflow: read a mapped
-iOS↔Android flow, detect where the two platforms' **content** has diverged, and emit a
-structured **sync plan** for the designer to refine. This skill **makes no Figma edits** —
-it enumerates, reads, compares, and reports. Propagation and rollback are a separate concern
-and are not taught here.
+The authoritative playbook for the **full** sync workflow: **detect** where a mapped
+iOS↔Android flow's **content** has diverged and emit a reviewable **sync plan** (read-only),
+then — after the designer approves — **propagate** the content deltas in the chosen direction
+with a backup/rollback safety net.
+
+**The two halves differ on writes.** Detection (§0–§6) makes **no Figma edits** — it
+enumerates, reads, compares, and reports. Propagation (§7–§10) writes, and **only ever after
+an approved plan**; it backs up before it mutates and can restore. The `sync-screens` command
+runs detection first, stops at the reviewed plan, and executes the mutation half only on
+explicit approval.
 
 > Prerequisite: the official **Figma MCP** must be running and authenticated
-> (`mcp__plugin_figma_figma__whoami`). This skill drives **read-only** `use_figma`.
+> (`mcp__plugin_figma_figma__whoami`). This skill drives **read-only** `use_figma` for
+> detection and **atomic** `use_figma` writes for propagation.
 >
 > **Source of truth for values:** component keys, design tokens, and layout constants live
 > in `${CLAUDE_PLUGIN_ROOT}/registry/components.json` — read them from there. This doc teaches
@@ -144,7 +150,77 @@ plainly that **no edits were made**.
 
 ---
 
-## 7. Gotchas
+## 7. Backup before mutating
+
+**Nothing is mutated until a backup exists.** Take the backup **once per run**, before the
+first write, and key it to the delta type:
+
+- **Content-only deltas** (text / image / fill / CTA label): the per-side content snapshot in
+  `mappings.json` (§4) **is** the backup — no canvas node is needed. Restore re-writes those
+  snapshot fields back onto the target's content surface.
+- **Structural deltas** (the sync must re-clone `Content AL` wholesale): **duplicate** the
+  affected target screen(s) into a **hidden frame** (`visible=false`) on the page, named for
+  the run (e.g. `backup — <flow> — <run>`), and record the backup node id **plus** the
+  snapshot in `mappings.json`. Restore swaps the duplicate back **wholesale** — re-link it into
+  the section and re-snap it to the pair's x/y slot.
+
+The hidden frame keeps the column-aligned section layout undisturbed (it never occupies a
+screen slot). **keep-last-1:** on a successful run, retain only the most recent backup per flow
+and delete any older backup frame.
+
+---
+
+## 8. Applying an approved delta
+
+For each **clean** screen delta in the approved plan, re-run **only the content steps** of the
+matching direction skill — leaving chrome and platform conventions intact:
+
+- re-clone / refresh `Content AL` from the source,
+- re-font per the typography rule (Roboto for → Android, SF Pro Text/Display for → iOS;
+  preserve the source's metrics),
+- re-copy the screen fill,
+- update the CTA label.
+
+Route by direction: iOS → Android through the `ios-to-android` skill; Android → iOS through the
+`android-to-ios` skill. Default **iOS → Android** unless the plan resolved otherwise.
+
+Apply is **overwrite-to-source-content** — it sets the target's content surface to match the
+source's *current* content, so it is inherently **idempotent**: running it twice converges on
+the same target state, and there is no incremental diff to double-apply.
+
+The **golden rule** still holds — derive from the source + the target design system, and
+**never invent UI the source lacks** (a terminal screen has no CTA / toolbar; do not add one).
+Work in **atomic ≤10-op batches** and **screenshot between batches**.
+
+---
+
+## 9. Conflict execution
+
+Apply **exactly** the resolution the designer chose during plan refinement (overwrite / keep /
+per-field). **Never re-ask** at execution time and **never fall back to a silent default.**
+
+- A conflict the plan left **unresolved** is **not eligible** for mutation — skip that pair and
+  report it; do not guess.
+- **Structural surprises** (added / removed screens) are out of scope for v1 propagation —
+  flag them, never auto-build or auto-delete.
+
+---
+
+## 10. Post-sync: rewrite snapshots & verify
+
+After a screen's content is applied and screenshot-verified:
+
+1. **Rewrite both per-side snapshots** for the pair — source and target now agree, so this
+   re-baselines the drift comparison **and** refreshes the rollback record (§4).
+2. **Update the flow** `lastSyncedAt` (today) and `lastSyncDirection` (the direction just run).
+3. **Verify each touched screen** against the source's content. On a mismatch, **restore from
+   the backup** (§7) and report the failure — **never leave a silent partial apply.**
+
+Run the **keep-last-1** backup cleanup (§7) only after the whole run succeeds.
+
+---
+
+## 11. Gotchas
 
 - **Enumerate by section children, never by name-regex** — terminal / off-convention screens
   (e.g. an end screen) get silently dropped otherwise, and the plan misses a pair.
@@ -162,10 +238,20 @@ plainly that **no edits were made**.
   not an inherited stroke artifact.
 - **Snapshots are content-only** — a chrome or font-family difference is never drift, with or
   without a snapshot.
+- **Never mutate before a backup exists** — content-only deltas back up via the snapshot;
+  structural deltas need the hidden duplicate frame first (§7).
+- **Apply content only** — re-clone `Content AL` + re-font + fill + CTA label; do **not** rebuild
+  chrome or re-translate the whole screen (that is a `create-*` job, not a sync).
+- **Execute the designer's conflict choice verbatim** — no re-asking, no silent default; an
+  unresolved conflict is skipped and reported, never guessed.
+- **Backups live in a hidden frame** (`visible=false`) so they never occupy a screen slot or
+  disturb the column-aligned layout; **keep-last-1** after a successful run.
+- **Re-baseline both snapshots after a successful apply** — a stale post-sync snapshot would
+  make the next detection pass re-report the change you just propagated.
 
 ---
 
-## 8. Reference
+## 12. Reference
 
 - Forward translation method and screen anatomy (§3): the `ios-to-android` skill.
 - Reverse translation method (mirror): the `android-to-ios` skill.
