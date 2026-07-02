@@ -1,5 +1,5 @@
 {
-  "$comment": "Stable design-system constants used by the workflows. Versioned in git so DS changes are auditable. The apply-ds-update workflow edits THIS file, then re-applies across mapped files. Colors are hex; scripts convert to Figma 0-1 RGB.",
+  "$comment": "Stable design-system constants used by the workflows. Versioned in git so DS changes are auditable. The apply-ds-update workflow edits THIS file, then re-applies across mapped files. VERSION-BUMP DISCIPLINE: bump the top-level `version` on every DS change and commit it — that commit is the auditable record, and the bumped `version` is the target apply-ds-update stamps onto each updated flow (mappings.json `dsVersion`). apply-ds-update skips flows already stamped at the current `version` (resumable partial fan-out) and re-applies the rest. Colors are hex; scripts convert to Figma 0-1 RGB.",
   "version": "0.1.0",
   "libraries": {
     "tidepoolLoopAndroid": "lk-91cfddc8fbd342dcee4c12967d9b3f28ad13c0220c98dde463fa80d541267b17361fc5fdf20b7b69118d4c13829a08a50d2d1fe8102784bef5006cb79fa15600",
