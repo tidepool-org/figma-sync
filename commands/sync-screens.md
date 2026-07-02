@@ -52,5 +52,11 @@ only after approval**. Work through these phases:
 ## 11. Clean up backups
 - **keep-last-1 per flow** (skill §7): after the run succeeds, delete any older backup frame for this flow, retaining only the most recent.
 
-## 12. Report
-- Mirror the create-* commands' **Report** phase: a per-screen summary of what propagated (content deltas **and** structural builds/removals) and its verify result, plus any **failures** and any **skipped** conflicts / unapproved structural changes. Surface everything — never a silent partial apply. Share the affected section link.
+## 12. Reconcile related mappings (do not skip)
+- Reconciliation is **part of the task**, not an optional extra — run it after this flow's mapping is updated, before you report. Per the skill's §10 step 5, re-open `~/.figma-sync/mappings.json` and check every **other** flow for staleness introduced by the deltas you just applied, especially **structural** ones (a built/removed screen changes a section's screen set).
+- **Same-file siblings (genuine sharing):** a flow whose **`fileKey` matches** the one you edited references the *same physical nodes* — update its `screenPairs` / snapshots the same way (§10) if your change touched a section/screen it also maps.
+- **Cross-file duplicates (NOT sharing):** a flow with the **same node ids but a different `fileKey`** is an independent Figma file (duplicates preserve node ids). Your change did **not** propagate to it — **never** edit its mapping or assume parity; at most **flag** that it may want its own `sync-screens` run. Gate "shared" on `fileKey`, never on bare node ids.
+- If nothing else is affected, say so — a silent skip reads as "nothing to reconcile" when there may have been.
+
+## 13. Report
+- Mirror the create-* commands' **Report** phase: a per-screen summary of what propagated (content deltas **and** structural builds/removals) and its verify result, plus any **failures**, any **skipped** conflicts / unapproved structural changes, and the **reconciliation outcome** (siblings updated, duplicates flagged, or nothing affected). Surface everything — never a silent partial apply. Share the affected section link.

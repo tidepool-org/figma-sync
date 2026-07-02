@@ -1,6 +1,6 @@
 {
   "name": "figma-sync",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Translate Figma flows between iOS (Apple HIG) and Android (Material 3) in either direction, sync content and screen-level structural changes between the platforms with rollback, and (planned) roll design-system updates across files.",
   "author": { "name": "Tidepool" },
   "keywords": ["figma", "design-system", "ios", "android", "material-3", "design-ops"]

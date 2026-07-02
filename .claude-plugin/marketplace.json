@@ -9,7 +9,7 @@
       "name": "figma-sync",
       "source": "./",
       "description": "iOS ↔ Android Figma flow translation and design-system sync.",
-      "version": "0.4.0"
+      "version": "0.5.0"
     }
   ]
 }

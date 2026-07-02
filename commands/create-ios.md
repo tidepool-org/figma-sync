@@ -24,10 +24,13 @@ Follow the **`figma-sync:android-to-ios`** skill as the authoritative playbook. 
 - **Column-align the two sections:** place iOS screens at the shared `x = firstScreenX + order*screenPitch` (1184 + order*460). Keep true device widths (Android 412 / iOS 375), left-aligned; equalize the two section widths (use the wider).
 - Build **screen 1 first** and show the user for sign-off before batching the rest.
 - For each Android screen: assemble iOS status bar + grabber (if a sheet) + nav (inline centered title; Back chevron ‹ / Close per the header rule) + cloned `Content AL` re-fonted to SF Pro (Text/Display by size, preserve Android metrics) + full-width iOS brand button (r8) + home indicator. iOS screen radius 0. Device-vs-scroll height logic at 812.
+- **Nav title = the flow name**, not a screen's content H1 — the Android source's app-bar title may be a placeholder; don't copy it blindly. After building, verify each nav title reads the flow name and fix any that duplicated the content headline (load font → set `characters`).
 - Lay screens out per the section-layout rules (fixed 460 pitch, y=192 baseline, recompute section width/height).
 
 ## 5. Record the mapping
 - After a successful build, write/update `~/.figma-sync/mappings.json` (create the dir/file if missing). Reuse the flow's entry (a flow may be built in either direction): `name`, `fileKey`, `page`, `androidSectionNodeId` (source), `iosSectionNodeId` (the new section), and the `screenPairs` (android↔ios node ids). See `${CLAUDE_PLUGIN_ROOT}/mappings.example.json` for the schema.
+- **Capture initial per-side snapshots** (drift-sync §4 — `texts / imageRefs / structHash / ctaLabel / screenFill`) for each pair at record time. Both sides agree at create, so this seeds the drift baseline and lets the **first** `sync-screens` **attribute direction** instead of degrading to live-only detection.
+- **Reconcile related mappings:** if another flow with the **same `fileKey`** shares this section, update it too; a flow with the **same node ids but a different `fileKey`** is a separate duplicate file — leave it (flag only). Gate on `fileKey`, never bare node ids.
 
 ## 6. Report
 - Share the iOS section node link and a short summary. Flag anything that needs human judgment (ambiguous titles, non-"Continue" CTA labels, terminal/menu screens with no nav/CTA).

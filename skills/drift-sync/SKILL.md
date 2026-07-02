@@ -84,6 +84,16 @@ mirror `android-to-ios`) for where each piece lives. For each paired screen, com
 **Explicitly NOT content** (never reported as drift): status bar, app bar / nav, gesture nav /
 home indicator, CTA radius/shape, font family, and content margins — all platform chrome.
 
+> **Locating the content subtree — don't give up when `Content AL` is absent.** Most screens
+> wrap content in a `Content AL` node, but **terminal / off-convention screens do not** — an
+> End / menu screen may wrap it in a `Container` (iOS) or bare `Content` (Android) frame
+> instead. If you find `Content AL` on one side and **nothing** on the other, you'll
+> **false-positive the whole screen as text + structure drift** (this bit a real run on the End
+> screen). Fall back: when `Content AL` is missing, take the screen's content region as **all
+> text / image under the screen minus the chrome containers** (status bar + its clock, app bar /
+> nav, gesture nav / home indicator). If both sides' content-minus-chrome match, it is **not**
+> drift.
+
 ---
 
 ## 3. Divergence algorithm
@@ -108,6 +118,12 @@ Live divergence is the **core signal** — there is no node-level edit history t
 3. **No snapshot → live-only detection.** Report the live diff as a candidate delta and rely
    on the designer to confirm direction. (Older mapping entries with no snapshot degrade to
    this path — that is the documented back-compat behavior.)
+
+> **Do the whole detection in one read.** Run every pair's signature diff **and** the structural
+> reconciliation (§1) inside a **single** read-only `use_figma` that takes the `screenPairs` +
+> section ids and **returns only the deltas** — skip the content of clean pairs. One round trip
+> beats one-per-screen, and returning full content for the (usually many) clean pairs just burns
+> context. Include per-pair which fields diverged and the differing values only.
 
 ---
 
@@ -223,6 +239,15 @@ the actions the designer approved (§9), in the resolved direction:
   (registry `firstScreenX` + `screenPitch`, `screenBaselineY`), re-spacing neighbors if needed.
   This is a **`create-*` build, not a content sync** — build full chrome + CTA from the target
   DS while deriving the content from the source; **never invent UI the source lacks**.
+  - **Mid-flow insert recipe (source-add at column *k*):** the source may insert a screen
+    *between* existing ones, not just append. Derive *k* from the source screen's **order in the
+    flow**, not its raw x. To keep both sections column-aligned: (1) shift every target screen at
+    column ≥ *k* **right by one `screenPitch`**; (2) build the twin into the opened column at the
+    shared `x = firstScreenX + k*screenPitch`, `y = screenBaselineY`; (3) grow the target
+    **section width by one `screenPitch`** (and sidebar height only if the built screen is taller
+    than the current max screen bottom + `sectionBottomPadding`).
+  - **Verify the built screen's app-bar / nav title reads the flow name**, not the source's
+    content H1 — see the §11 gotcha.
 - **Remove** (target-orphan / source-deleted twin): after the backup exists (§7), delete the
   target screen and re-close the column gap so the layout stays aligned. **Destructive —
   approved per screen only.**
@@ -262,6 +287,15 @@ After a screen's content is applied and screenshot-verified:
    new target screen against its source; for a **removal**, verify the screen is gone and the
    column re-closed. On a mismatch, **restore from the backup** (§7) and report the failure —
    **never leave a silent partial apply.**
+5. **Reconcile related mappings** (treat as part of the run, not optional). After this flow's
+   entry is updated, check every **other** flow in `mappings.json` for staleness from the deltas
+   you just applied — especially **structural** ones. A sibling whose **`fileKey` matches** the
+   edited flow references the *same physical nodes*: update its `screenPairs` / snapshots the
+   same way. A flow with the **same node ids but a different `fileKey`** is an **independent
+   duplicate file** (Figma duplicates preserve node ids across files) — your change did **not**
+   reach it; at most **flag** it for its own run, never edit it. Gate "shared" on `fileKey`,
+   never on bare node ids. State the outcome (siblings updated, duplicates flagged, or nothing
+   affected) in the report.
 
 Run the **keep-last-1** backup cleanup (§7) only after the whole run succeeds.
 
@@ -303,6 +337,18 @@ Run the **keep-last-1** backup cleanup (§7) only after the whole run succeeds.
   disturb the column-aligned layout; **keep-last-1** after a successful run.
 - **Re-baseline both snapshots after a successful apply** — a stale post-sync snapshot would
   make the next detection pass re-report the change you just propagated.
+- **A built screen's app-bar / nav title must be the flow name, not the content H1** — the
+  source's nav title slot is often an unedited placeholder (literally "Title"), so a builder can
+  fall back to the screen's content headline and duplicate it in the app bar. After any build,
+  screenshot and confirm the title reads the flow name; fix it (load font → set `characters`) if
+  not.
+- **Off-convention screens hide their content outside `Content AL`** — an End / menu screen may
+  wrap content in `Container` / bare `Content`; comparing a found `Content AL` against an empty
+  result false-positives the whole screen (§2). Fall back to content-minus-chrome.
+- **Reconcile siblings by `fileKey`, not node id** — duplicated Figma files reuse node ids, so a
+  flow with matching node ids but a **different `fileKey`** is a *separate file* your change
+  never touched. Update same-`fileKey` siblings; only **flag** different-`fileKey` duplicates
+  (§10 step 5).
 
 ---
 
