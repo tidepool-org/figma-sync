@@ -44,11 +44,12 @@ figma-sync/
 │   ├── create-android.md      # ✅ ready  (iOS → Android)
 │   ├── create-ios.md          # ✅ ready  (Android → iOS)
 │   ├── sync-screens.md        # ✅ ready  (bidirectional content sync + rollback)
-│   └── apply-ds-update.md     # 🚧 planned
+│   └── apply-ds-update.md     # ✅ ready  (roll a committed DS change across mapped files)
 ├── skills/
 │   ├── ios-to-android/SKILL.md  # forward-direction conventions playbook
 │   ├── android-to-ios/SKILL.md  # reverse-direction conventions playbook
-│   └── drift-sync/SKILL.md      # detect drift, plan, propagate + rollback
+│   ├── drift-sync/SKILL.md      # detect drift, plan, propagate + rollback
+│   └── ds-update/SKILL.md       # roll a committed DS change across mapped files
 ├── agents/
 │   ├── screen-builder.md      # offload/parallelize per-screen building (→ Android)
 │   └── screen-builder-ios.md  # offload/parallelize per-screen building (→ iOS)
@@ -78,7 +79,8 @@ node ids, and the **iOS↔Android `screenPairs`**.
 - `sync-screens` **reads** the pairs to find each side's counterpart, **reads** the per-side
   content snapshots as the drift baseline + rollback record, and **rewrites** the snapshots +
   `lastSyncedAt` / `lastSyncDirection` after a successful sync.
-- `apply-ds-update` **reads** it to enumerate target files.
+- `apply-ds-update` **reads** it to enumerate target files (grouped by `fileKey`) and
+  **writes** each updated flow's `dsVersion` / `dsAppliedAt` stamp after a successful re-apply.
 
 **Why user-global, not repo-local:** designers install via standard Claude commands and may
 have no git workflow at all. A file at `~/.figma-sync/mappings.json` works regardless of any
@@ -92,7 +94,7 @@ in the repo documents the schema.)
 | Create Android section | `create-android` | ✅ | Translate an iOS flow where no Android exists; write the mapping |
 | Create iOS section | `create-ios` | ✅ | Reverse direction: translate an Android flow where no iOS exists; write the mapping |
 | Sync screens (either direction) | `sync-screens` | ✅ | Detect content drift, present a plan, then propagate the approved deltas either way with a snapshot/rollback safety net |
-| Apply DS update | `apply-ds-update` | 🚧 | Edit the registry, fan out one agent per mapped file to re-apply |
+| Apply DS update | `apply-ds-update` | ✅ | Read the delta from the committed registry diff, fan out one agent per `fileKey` to fully re-apply each screen's chrome from the current DS (preserving project overrides), with approval gate, per-file backup, and per-flow version stamping |
 
 The create workflows share the registry (constants) and the mapping (targets/pairs); each uses
 its direction's skill (`ios-to-android` / `android-to-ios`). The two skills are mirrors —
@@ -120,8 +122,21 @@ forward keys live at the top of the registry, reverse keys under `androidToIos`.
   (keep-last-1). It deliberately **does not** use Figma's REST version-history API — there is no
   node-level edit history and no programmatic version create/restore, so the snapshot doubles as
   the drift baseline and the rollback record.
-- **Phase 3:** `apply-ds-update`. Multi-file fan-out (agent per file), delta semantics
-  (targeted patch vs full re-apply), idempotency, and rollback.
+- **Phase 3 (shipped):** `apply-ds-update`. The command is a thin orchestration that defers to
+  the **`ds-update`** skill as its authoritative playbook — the same command↔skill split as
+  `sync-screens` → `drift-sync`. The operator reflects an upstream DS change into
+  `registry/components.json` and **commits** it (the auditable record); the command reads the
+  delta from the registry `git diff`, builds the work set of every mapped file for the platform
+  **grouped by `fileKey`** (including cross-file duplicates — the *reverse* of `sync-screens`,
+  which flags duplicates rather than editing them), detects deliberate **project overrides** to
+  preserve, and — after an approval gate — fans out **one agent per `fileKey`** to **fully
+  re-apply** each screen's chrome from the current DS while keeping the overrides. Delta
+  semantics resolved to **full re-apply** (not a targeted patch): a DS change ripples through
+  chrome in ways a field patch would miss, and overwrite-to-current-DS is idempotent. Backup
+  **reuses the sync-screens mechanism** — a hidden in-canvas duplicate of the affected section,
+  keep-last-1 per flow — and verify restores on mismatch. Each updated flow is stamped with the
+  applied `dsVersion` / `dsAppliedAt` so a re-run skips files already current and a partial
+  fan-out resumes.
 
 ## 8. Open questions
 
