@@ -94,6 +94,13 @@ silently drops off-convention frames and mislabels). For each section:
    - **Section name** — a weak tiebreak only (e.g. an "ANDROID" / "iOS" label), never decisive.
 3. **Tag** each section `ios`, `android`, or `non-flow` (a type-system board, scratch, anything
    whose children aren't a screen row). Read any existing identity stamp (§1) at the same time.
+4. **Flag unlabeled sections.** If a managed section's **name** does not clearly encode its
+   platform — a bare `Section` rather than a name containing `iOS`/`IOS` or `Android` — record it
+   as **unlabeled** with a proposed label (`iOS Section` / `ANDROID Section`, matching the
+   `create-*` naming). The classifier still only **reads**; the proposed rename is surfaced in the
+   plan and applied **only on the designer's confirmation** — a cosmetic, name-only rename in the
+   write phase (never content or geometry). Never rename a section the user didn't confirm, and
+   never rename a `non-flow` section.
 
 **Confirm ambiguous sections with the designer.** If the signals disagree (e.g. 412-wide screens
 under a black sidebar) or a section can't be confidently classified, present it for a decision

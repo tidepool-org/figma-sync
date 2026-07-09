@@ -24,7 +24,7 @@ approval**. Work through these phases:
 - Read the design-system layout constants from `${CLAUDE_PLUGIN_ROOT}/registry/components.json` (`layout.*`). Use those keys — do not re-discover.
 
 ## 2. Classify the page (read-only)
-- Per the skill's §2, enumerate the page's top-level sections and their **direct children** (never name-regex) and tag each `ios`, `android`, or `non-flow` from structural signals — screen width (`layout.iosScreenWidth` 375 vs `layout.androidScreenWidth` 412), sidebar `Status` fill (iOS black / Android white), and name as a weak tiebreak. Read each section's identity stamp at the same time. **Make no edits.**
+- Per the skill's §2, enumerate the page's top-level sections and their **direct children** (never name-regex) and tag each `ios`, `android`, or `non-flow` from structural signals — screen width (`layout.iosScreenWidth` 375 vs `layout.androidScreenWidth` 412), sidebar `Status` fill (iOS black / Android white), and name as a weak tiebreak. Read each section's identity stamp at the same time. Also **flag any managed section whose name doesn't clearly encode its platform** (a bare `Section`) as **unlabeled**, with a proposed `iOS Section` / `ANDROID Section` label (skill §2.4) — for the plan only. **Make no edits.**
 
 ## 3. Build the work set + band (read-only)
 - Per the skill's §1 + §3, from the classified sections determine the **source** sections (the platform opposite the target) and, for each, its target-platform counterpart via the **identity stamp** (`figmaSyncPairId` + `figmaSyncRole`). Assign each flow a state: **build** (no counterpart), **move** (counterpart exists but not in its canonical slot), or **no-op** (already in slot).
@@ -35,7 +35,7 @@ approval**. Work through these phases:
 - Per the skill's §4, run the **declarative packer** over the canonical flow order to compute each managed section's target `(x, y)` and the **reserved rects** for sections to be built. This is a computation only — **no mutation**.
 
 ## 5. Present the plan
-- Show: the **classifier table** (each section's platform, stamped vs adoption-candidate, non-flow/skipped); the **per-flow reconcile** (build / move / no-op) for the target platform; the **inferred adoption pairings** with ambiguous ones called out for a decision; and a **placement preview** (what moves where, which sections push down to make room). Invite the user to refine scope, confirm/repair pairings, or adjust the platform. Present only — **make no mutation here.**
+- Show: the **classifier table** (each section's platform, stamped vs adoption-candidate, non-flow/skipped, and whether its **name** is platform-labeled or **unlabeled** with a proposed label); the **per-flow reconcile** (build / move / no-op) for the target platform; the **inferred adoption pairings** with ambiguous ones called out for a decision; and a **placement preview** (what moves where, which sections push down to make room). Invite the user to refine scope, confirm/repair pairings, adjust the platform, and **confirm or decline the proposed section-name labels for any unlabeled managed sections** (skill §2.4). Present only — **make no mutation here.**
 
 ## 6. Approval gate (do not skip)
 - **Make no mutation until the user explicitly approves in a following turn** (e.g. "apply" / "yes, build"). An echoed or refined plan is **not** approval. No affirmative → stop here with no edits.
@@ -46,6 +46,7 @@ approval**. Work through these phases:
 
 ## 8. Reflow & relocate — the packer writes
 - Per the skill's §4 + §5, move each **existing** managed section (including confirmed **adopted** ones, whose stamp is written first, skill §6) to its computed target, opening the reserved rects for the builds. Relocation is **geometry only** — never rebuild or clobber a moved section's content (skill §5.1). Work in **atomic ≤10-op batches** and **screenshot between**; the declarative packer makes a partially-applied reflow safe to resume.
+- Apply any **confirmed section-name labels** in this phase — a cosmetic **rename only** (the section's name, never its content or geometry); skip any label the user didn't confirm, and never rename a `non-flow` section.
 
 ## 9. Fan out the builds — one agent per flow
 - Per the skill's §5 (build state), offload each flow that needs a **new** counterpart to the `screen-builder` (→ Android) / `screen-builder-ios` (→ iOS) agent, giving it the source section node id, the ordered source screen node ids, the **reserved rect** for placement, and the **page node id**. The agent builds each screen via `figma-sync:ios-to-android` / `figma-sync:android-to-ios`, **parents the new section to that page** (`targetPage.appendChild(section)` by id — a `use_figma` call resets `currentPage` to the *first* page, so a section created before switching silently lands on the wrong page; parenting by id makes placement deterministic), **writes the identity stamp** on the new section, and **returns the new section's `parent.id`** for the §10 check. Reserved rects keep parallel agents from colliding.
