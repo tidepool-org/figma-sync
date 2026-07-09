@@ -242,10 +242,13 @@ auto-run — a per-flow `sync-screens` hand-off, and **only for adopted / reloca
 - **Sequence strictly:** relocate → stamp → write mapping → *then* offer (`sync-screens` reads
   the mapping).
 
-**Caveat — first sync on an adopted pair is live-only.** `create-*` seed a drift baseline at
-build time (both sides agree then); an adopted pair has no trustworthy baseline, so its first
-`sync-screens` runs in **live-only detection** and cannot auto-attribute drift direction — it
-surfaces the diffs and asks direction. This is expected, not a bug.
+**Caveat — an adopted pair's first sync pairs live.** `create-*` seed both `screenPairs` and a
+drift baseline at build time; an adopted pair has **neither** — its recorded `screenPairs` are
+empty and there is no baseline. So its first `sync-screens` uses the drift-sync **live-pairing**
+path (`drift-sync` §1.2): it pairs the screens by name/order, proposes them for confirmation,
+and — lacking a baseline — asks direction rather than auto-attributing drift. On an approved
+sync those pairings and fresh snapshots are persisted (`drift-sync` §10.2), so later syncs
+behave normally. No manual `screenPairs` seeding is ever required. This is expected, not a bug.
 
 ---
 

@@ -47,6 +47,13 @@ silently drops).
 1. Read-only `use_figma` returning `iosSection.children` and `androidSection.children`
    (`id / name / type / x / y / w / h`). Drop the `Status` sidebar; sort each by `x`.
 2. **Pair by the stored `screenPairs` node ids** in the mapping — not by name or order.
+   **If `screenPairs` is empty or partial — an adopted pair's first sync — pair the
+   still-unpaired screens live:** match by **normalized name** first, then by **order /
+   x-position**. Surface each live pairing as a **proposed** pair in the sync plan for
+   confirmation; it is **not persisted** until an approved sync writes it back (§10.2).
+   Confidently-paired screens get the content diff below; screens that stay unmatched are true
+   structural adds/removes (step 3). This live-**pairing** fallback is separate from the
+   live-**only** path (missing *snapshot*, below) — an adopted pair usually needs both.
 3. Reconcile against the live children — added / removed screens are **structural deltas**
    (screen-set changes, as opposed to a paired screen's content), and they are **in scope**
    for propagation (§8.1). Classify each, oriented by the resolved direction (source → target):
@@ -279,9 +286,11 @@ After a screen's content is applied and screenshot-verified:
 
 1. **Rewrite both per-side snapshots** for each synced pair — source and target now agree, so
    this re-baselines the drift comparison **and** refreshes the rollback record (§4).
-2. **Reconcile `screenPairs` for structural deltas** — **add** a new pair (both node ids +
-   fresh both-side snapshots) for each **built** screen; **remove** the pair for each
-   **removed** screen.
+2. **Reconcile `screenPairs`** — **add** a new pair (both node ids + fresh both-side snapshots)
+   for each **built** screen; **remove** the pair for each **removed** screen; and **persist
+   every confirmed live pairing** from an adopted pair's first sync (§1.2) as a stored pair with
+   fresh both-side snapshots. After this step an adopted pair is fully onboarded — later syncs
+   read real pairs + a baseline, with no live-pairing or manual seeding needed.
 3. **Update the flow** `lastSyncedAt` (today) and `lastSyncDirection` (the direction just run).
 4. **Verify each touched screen** against the source's content — for a **build**, verify the
    new target screen against its source; for a **removal**, verify the screen is gone and the
