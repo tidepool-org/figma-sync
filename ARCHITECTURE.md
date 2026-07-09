@@ -44,12 +44,14 @@ figma-sync/
 │   ├── create-android.md      # ✅ ready  (iOS → Android)
 │   ├── create-ios.md          # ✅ ready  (Android → iOS)
 │   ├── sync-screens.md        # ✅ ready  (bidirectional content sync + rollback)
-│   └── apply-ds-update.md     # ✅ ready  (roll a committed DS change across mapped files)
+│   ├── apply-ds-update.md     # ✅ ready  (roll a committed DS change across mapped files)
+│   └── build-page.md          # ✅ ready  (reconcile a whole page of many flows)
 ├── skills/
 │   ├── ios-to-android/SKILL.md  # forward-direction conventions playbook
 │   ├── android-to-ios/SKILL.md  # reverse-direction conventions playbook
 │   ├── drift-sync/SKILL.md      # detect drift, plan, propagate + rollback
-│   └── ds-update/SKILL.md       # roll a committed DS change across mapped files
+│   ├── ds-update/SKILL.md       # roll a committed DS change across mapped files
+│   └── page-layout/SKILL.md     # multi-section identity + packer + reconcile
 ├── agents/
 │   ├── screen-builder.md      # offload/parallelize per-screen building (→ Android)
 │   └── screen-builder-ios.md  # offload/parallelize per-screen building (→ iOS)
@@ -64,7 +66,7 @@ Install: `/plugin marketplace add tidepool-org/figma-sync` → `/plugin install 
 
 ## 4. The backbone: registry + mapping
 
-Two data artifacts turn three separate scripts into one coherent system.
+Three data artifacts turn the separate commands into one coherent system.
 
 ### `registry/components.json` (committed, versioned)
 The stable design-system constants — library keys, component keys, brand tokens, and layout
@@ -81,11 +83,23 @@ node ids, and the **iOS↔Android `screenPairs`**.
   `lastSyncedAt` / `lastSyncDirection` after a successful sync.
 - `apply-ds-update` **reads** it to enumerate target files (grouped by `fileKey`) and
   **writes** each updated flow's `dsVersion` / `dsAppliedAt` stamp after a successful re-apply.
+- `build-page` **reads** the identity stamp + mapping to reconcile a whole page and **writes**
+  each flow's `flowId` and relocated/built section node ids (recording adopted pairings).
 
 **Why user-global, not repo-local:** designers install via standard Claude commands and may
 have no git workflow at all. A file at `~/.figma-sync/mappings.json` works regardless of any
 repo, survives across projects, and has zero risk of being committed. (`mappings.example.json`
 in the repo documents the schema.)
+
+### In-file identity stamp (per section, `setPluginData`)
+Each managed section carries a durable identity written into the node via Figma
+`setPluginData`: `figmaSyncFlowId`, `figmaSyncRole` (`ios`/`android`), and `figmaSyncPairId`
+(links the two counterpart sections). It is the source of truth for a flow's identity and its
+iOS↔Android pairing — so the commands recognise an existing counterpart and reconcile a page
+**reliably even when many flows share it**, where spatial/name matching cannot.
+`create-android` / `create-ios` / `build-page` write it; the mapping's `flowId` cross-links the
+user-global record to the in-file stamp. It holds identity only — never layout coordinates (the
+`build-page` layout backup lives in-canvas) or chrome/content.
 
 ## 5. Workflows
 
@@ -137,6 +151,23 @@ forward keys live at the top of the registry, reverse keys under `androidToIos`.
   keep-last-1 per flow — and verify restores on mismatch. Each updated flow is stamped with the
   applied `dsVersion` / `dsAppliedAt` so a re-run skips files already current and a partial
   fan-out resumes.
+- **Phase 4 (shipped):** `build-page`. The command is a thin orchestration that defers to the
+  **`page-layout`** skill — the same command↔skill split as the others. It makes a Figma page
+  holding **many flows** a first-class unit, dropping the earlier one-page-per-flow assumption.
+  Sections gain a durable in-file **identity stamp** (`setPluginData`), so idempotency and
+  iOS↔Android pairing stop relying on fragile spatial/name matching; `create-android` /
+  `create-ios` were retrofitted to write and resolve it. A read-only **classifier** tags each
+  section iOS / Android / non-flow by structural signals, and a **declarative packer** recomputes
+  the canonical below-the-source layout from flow order every run — idempotent and resumable
+  across atomic batches — inside a **managed column band** that leaves unmanaged content
+  untouched. Per flow it **builds** a missing counterpart, **relocates** a misplaced one
+  (geometry only — never rebuilding content), or no-ops; a pre-existing unstamped section is
+  **adopted** (pairing inferred, then human-confirmed) first. Chosen layout strategy is **below +
+  make-room reflow** (over parallel-column or a dedicated page). A **layout backup** of every
+  managed section's position makes the whole reflow reversible, and after adopting/relocating a
+  pair the command may **offer** a `sync-screens` pass for its content (fresh builds are in-sync
+  by construction). Behind the same read-only-then-approve gate + per-flow fan-out as
+  `apply-ds-update`.
 
 ## 8. Open questions
 
@@ -146,8 +177,13 @@ forward keys live at the top of the registry, reverse keys under `androidToIos`.
 - **Protecting manual edits** → both-sides-edited **conflicts** are flagged and asked;
   unresolved conflicts are skipped, never clobbered.
 
-**Still open (Phase 3):**
-- DS-update "delta" semantics and per-file versioning/rollback.
+**Resolved for Phase 4:**
+- **Flow identity on a shared page** → a durable in-file `setPluginData` **identity stamp**
+  (`figmaSyncFlowId` / `figmaSyncRole` / `figmaSyncPairId`), not spatial/name matching.
+- **Placement without collisions** → a **declarative packer** (recompute canonical layout from
+  flow order each run) with a **make-room reflow** inside a **managed column band**.
+
+**Still open:**
 - Whether to add a `validate`/`audit` command (drift check between iOS, Android, and registry).
 
 ## 9. Decisions captured
@@ -156,6 +192,9 @@ forward keys live at the top of the registry, reverse keys under `androidToIos`.
 - **Mapping is user-global** at `~/.figma-sync/mappings.json`. *(no git knowledge needed)*
 - **Registry is committed & versioned** as the DS source of truth and DS-change audit log.
 - **Sections stacked vertically, left-aligned** (source on top) for comparison.
+- **Multi-section pages** reconciled by a **declarative packer** (below + make-room reflow),
+  with a per-section in-file **identity stamp** so pairing/idempotency never rely on position or
+  name. *(a page holds many flows)*
 - **Derive, don't copy** from any existing target-platform reference.
 - **Bidirectional, mirrored skills.** `create-ios` mirrors `create-android`; reverse iOS DS
   constants live under the registry's `androidToIos` block and ship with empty component keys

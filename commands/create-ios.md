@@ -14,13 +14,14 @@ Follow the **`figma-sync:android-to-ios`** skill as the authoritative playbook. 
 - Read the design-system constants from `${CLAUDE_PLUGIN_ROOT}/registry/components.json` — the shared grid + `tokens.brandPrimary`, and the `androidToIos` block (iOS layout, typography, component keys). **iOS chrome keys ship empty:** if any `androidToIos.components.*.key` is blank, discover it via `search_design_system` against the iOS DS library and **commit it back to the registry** before building.
 
 ## 2. Idempotency guard
-- Enumerate the page / Android section's children. If an `IOS Section` already exists for this flow, **stop and ask** whether to update or recreate — never silently duplicate. This command is for creating one where none exists.
+- Resolve the counterpart via the **identity stamp**, not page position or name (per the `figma-sync:page-layout` skill §1): look for a section whose `figmaSyncPairId` matches the Android source's and whose `figmaSyncRole` is `ios`. If a stamped iOS counterpart exists, **stop and ask** whether to update or recreate — never silently duplicate. This command is for creating one where none exists.
+- If the Android **source** is itself unstamped (built before stamping existed), adopt it first (`page-layout` §6): write its stamp, then proceed. A pre-existing but **unstamped** iOS section is a legacy-adoption case — hand it to `page-layout` (§6) to pair + stamp; do not treat it as absent and build a duplicate.
 
 ## 3. Golden rule
 - Derive the iOS design **only** from the Android section + the iOS/Apple HIG design systems. If a finished iOS section exists elsewhere as a reference, **do not look at it to drive the design.**
 
 ## 4. Build (per the skill)
-- Set up the `IOS Section` **stacked directly below the Android section and left-aligned** (`x = AND.x`, `y = AND.y + AND.height + sectionStackGap`) — never to the right. Background `#565656`, **black** sidebar cloned from the Android `Status` (recolored black fill / white text), 64px section radius, 192px top/bottom padding.
+- Set up the `IOS Section`: background `#565656`, **black** sidebar cloned from the Android `Status` (recolored black fill / white text), 64px section radius, 192px top/bottom padding. **Placement is owned by the `figma-sync:page-layout` packer** — below the Android source, left-aligned, in the managed column band (never to the right); do **not** hardcode a fixed `y` offset. **Write the identity stamp** on the new section (`figmaSyncFlowId` / `figmaSyncRole=ios` / `figmaSyncPairId`, per `page-layout` §1).
 - **Column-align the two sections:** place iOS screens at the shared `x = firstScreenX + order*screenPitch` (1184 + order*460). Keep true device widths (Android 412 / iOS 375), left-aligned; equalize the two section widths (use the wider).
 - Build **screen 1 first** and show the user for sign-off before batching the rest.
 - For each Android screen: assemble iOS status bar + grabber (if a sheet) + nav (inline centered title; Back chevron ‹ / Close per the header rule) + cloned `Content AL` re-fonted to SF Pro (Text/Display by size, preserve Android metrics) + full-width iOS brand button (r8) + home indicator. iOS screen radius 0. Device-vs-scroll height logic at 812.
@@ -28,7 +29,7 @@ Follow the **`figma-sync:android-to-ios`** skill as the authoritative playbook. 
 - Lay screens out per the section-layout rules (fixed 460 pitch, y=192 baseline, recompute section width/height).
 
 ## 5. Record the mapping
-- After a successful build, write/update `~/.figma-sync/mappings.json` (create the dir/file if missing). Reuse the flow's entry (a flow may be built in either direction): `name`, `fileKey`, `page`, `androidSectionNodeId` (source), `iosSectionNodeId` (the new section), and the `screenPairs` (android↔ios node ids). See `${CLAUDE_PLUGIN_ROOT}/mappings.example.json` for the schema.
+- After a successful build, write/update `~/.figma-sync/mappings.json` (create the dir/file if missing). Reuse the flow's entry (a flow may be built in either direction): `flowId` (matching the identity stamp), `name`, `fileKey`, `page`, `androidSectionNodeId` (source), `iosSectionNodeId` (the new section), and the `screenPairs` (android↔ios node ids). See `${CLAUDE_PLUGIN_ROOT}/mappings.example.json` for the schema.
 - **Capture initial per-side snapshots** (drift-sync §4 — `texts / imageRefs / structHash / ctaLabel / screenFill`) for each pair at record time. Both sides agree at create, so this seeds the drift baseline and lets the **first** `sync-screens` **attribute direction** instead of degrading to live-only detection.
 - **Reconcile related mappings:** if another flow with the **same `fileKey`** shares this section, update it too; a flow with the **same node ids but a different `fileKey`** is a separate duplicate file — leave it (flag only). Gate on `fileKey`, never bare node ids.
 

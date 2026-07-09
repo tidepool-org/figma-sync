@@ -28,6 +28,7 @@ Update later with `/plugin update`. (Repo path during development:
 | `/figma-sync:create-ios [figma url]` | ✅ ready | Create an iOS section translating an existing Android flow |
 | `/figma-sync:sync-screens [flow]` | ✅ ready | Detect content drift and propagate approved edits in either direction, with snapshot/rollback |
 | `/figma-sync:apply-ds-update [ios\|android] [change]` | ✅ ready | Roll a committed registry (design-system) change across every mapped file for a platform, via a full re-apply that preserves project overrides, with approval gate + per-file backup |
+| `/figma-sync:build-page [figma url] [ios\|android]` | ✅ ready | Reconcile a whole page of many flows: build each missing platform section below its source, relocate misplaced ones (geometry only), leave unmanaged content untouched — approval gate + reversible layout backup |
 
 ## How it works
 - **`skills/ios-to-android/`** and **`skills/android-to-ios/`** — the authoritative conventions
@@ -39,6 +40,11 @@ Update later with `/plugin update`. (Repo path during development:
 - **`skills/ds-update/`** — the design-system update playbook: roll a committed registry change
   across every mapped file for a platform via a full per-screen re-apply that preserves project
   overrides, with an approval gate, per-file backup, and per-flow version stamping.
+- **`skills/page-layout/`** — the multi-section-page playbook: a stable in-file identity stamp,
+  a read-only classifier, a declarative packer that lays each section out **below its source**
+  and makes room by pushing lower sections down, geometry-only relocation of misplaced sections,
+  legacy-section adoption, and a reversible layout backup. `create-android` / `create-ios` defer
+  to it for placement + identity; `build-page` drives it across a whole page.
 - **`registry/components.json`** — versioned design-system constants (library + component
   keys, tokens, layout values). Update this when iOS/Android ship new specs.
 - **`~/.figma-sync/mappings.json`** — per-designer, user-global record of which files/sections
@@ -68,10 +74,24 @@ agent per file to **fully re-apply** each screen's chrome from the current DS wh
 overrides, verifies (restoring on mismatch), and stamps each updated flow with the applied
 `dsVersion` so a re-run skips files already current.
 
+**Building a whole page.** A page often holds **many flows**, not one. `build-page [figma url]
+[ios|android]` reconciles the whole page for the chosen target platform: it classifies every
+section (read-only), then for each flow **builds** a missing counterpart, **relocates** a
+misplaced one below its source (geometry only — never rebuilding its content), or leaves an
+in-place one alone. Placement is computed by a declarative packer that **makes room by pushing
+lower sections down**; unmanaged content (type-system boards, unrelated frames) is never touched.
+Sections are identified by a durable in-file **identity stamp**, so counterparts are matched
+reliably even with many flows on one page; a pre-existing unstamped section is **adopted** (its
+pairing inferred, then confirmed by you) before it joins the layout. Like the other write
+commands it runs read-only first, presents a plan, and mutates only after you approve — with a
+**layout backup** that restores the whole arrangement. After adopting/relocating a section it may
+**offer** a `sync-screens` pass to reconcile that pair's content.
+
 ## Notes
 - **Derive, don't copy.** The target design is derived only from the source screens + the
   target platform's design system — never from a pre-existing target section.
 - The two sections are **stacked vertically, left-aligned** — **source on top** (iOS for
-  `create-android`, Android for `create-ios`) — for easy comparison.
+  `create-android`, Android for `create-ios`) — for easy comparison. On a page with many flows,
+  `build-page` keeps this below-the-source layout and makes room by pushing lower sections down.
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the design rationale and roadmap.

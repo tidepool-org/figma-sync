@@ -59,9 +59,13 @@ section is the target (below)**:
 ### Section layout rules
 Every grid constant below is a key in `registry.layout` and is **shared with the forward
 workflow** — read at runtime; parentheticals are current Loop values, for orientation only.
-- **Placement:** `IOS Section` is left-aligned with the Android section (`x = AND.x`) and sits
-  **directly below it** (`y = AND.y + AND.height + sectionStackGap`). Stack vertically — never
-  to the right.
+- **Placement — defer to the `page-layout` skill.** *Where* a section goes and *how it is
+  identified* are owned by `page-layout`'s declarative packer, not this skill. The target still
+  sits **below its source, left-aligned**, stacked vertically (never to the right); but on a
+  page holding other flows the packer computes the position from flow order and **makes room by
+  pushing lower sections down**. Do **not** hardcode a fixed
+  `y = AND.y + AND.height + sectionStackGap` offset here — build the section, then hand it to
+  the packer for placement. The pitch / column-alignment rules below are the packer's inputs.
 - **Section frame:** `cornerRadius = sectionCornerRadius` (64), `clipsContent = true`,
   background `androidToIos.tokens.iosSectionBackground` (`#565656`).
 - **Screen row:** single horizontal row in flow order at fixed pitch —
@@ -207,8 +211,11 @@ pill, on iOS a radius-8 button and the nav tint.
 1. **Preflight:** `whoami`; read `registry/components.json`; **enumerate the Android Section's
    direct children** to build the authoritative screen list (see §6 — don't name-regex);
    discover + persist any missing iOS DS keys (§2).
-2. **Section setup:** create `IOS Section` stacked below the Android section, left-aligned;
-   `#565656` bg; clone the Android `Status` sidebar → **black fill, white text**, full height.
+2. **Section setup:** create `IOS Section` (placement via the `page-layout` packer — below its
+   source, left-aligned, in the managed band); `#565656` bg; clone the Android `Status` sidebar
+   → **black fill, white text**, full height. **Write the identity stamp** on the new section
+   (`figmaSyncFlowId` / `figmaSyncRole=ios` / `figmaSyncPairId`, per `page-layout` §1) so it is
+   idempotently recognised and paired later.
 3. **Screen 1 first**, get sign-off before batching.
 4. **Per screen:** iOS status bar → grabber (if a sheet) → nav (header rule) → cloned `Content AL`
    re-fonted to SF Pro (§4.1) → Spacer → iOS brand button (label from the visible Android
@@ -254,10 +261,11 @@ pill, on iOS a radius-8 button and the nav tint.
 
 ## 7. Mapping (persistent state)
 Reuse the **same** per-flow entry in `~/.figma-sync/mappings.json` (a flow may be built in either
-direction). After a successful build, write/update `name`, `fileKey`, `page`,
-`androidSectionNodeId` (the **source** here) and `iosSectionNodeId` (the **new** section), and the
-`screenPairs` (android↔ios node ids). Schema: `${CLAUDE_PLUGIN_ROOT}/mappings.example.json`. This
-is what `sync-screens` and `apply-ds-update` read later.
+direction). After a successful build, write/update `flowId` (matching the identity stamp),
+`name`, `fileKey`, `page`, `androidSectionNodeId` (the **source** here) and `iosSectionNodeId`
+(the **new** section), and the `screenPairs` (android↔ios node ids). Schema:
+`${CLAUDE_PLUGIN_ROOT}/mappings.example.json`. This is what `sync-screens`, `apply-ds-update`,
+and `build-page` read later.
 
 ---
 

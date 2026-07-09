@@ -39,7 +39,7 @@
     "contentMargin": 24,
     "sectionStackGap": 800,
     "columnAlignAcrossSections": true,
-    "$layoutNote": "Sections stack vertically, left-aligned (iOS on top). Both sections share firstScreenX + screenPitch so iOS/Android screen pairs column-align; re-space iOS (often ~415 pitch) to 460. Keep true device widths (iOS 375 / Android 412), left-aligned. Equalize section widths."
+    "$layoutNote": "Sections stack vertically, left-aligned (iOS on top). Both sections share firstScreenX + screenPitch so iOS/Android screen pairs column-align; re-space iOS (often ~415 pitch) to 460. Keep true device widths (iOS 375 / Android 412), left-aligned. Equalize section widths. On a page with many flows, build-page (page-layout skill) treats these constants as inputs to a DECLARATIVE PACKER: each section is placed below its source within a managed column band and lower sections are pushed down to make room; sections are identified by an in-file setPluginData identity stamp (figmaSyncFlowId/figmaSyncRole/figmaSyncPairId), not by position or name."
   },
   "androidToIos": {
     "$comment": "Constants for the REVERSE workflow (Android source -> iOS target), used by the android-to-ios skill. Grid constants (firstScreenX, screenPitch, screenBaselineY, sectionCornerRadius, sectionStackGap, padding, sidebarWidth) and tokens.brandPrimary are SHARED with the forward workflow above. iOS chrome component keys ship EMPTY: discover them via search_design_system against the iOS DS library on first run and commit them here (empty string = not yet discovered).",
