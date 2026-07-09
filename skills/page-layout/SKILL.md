@@ -272,6 +272,13 @@ surfaces the diffs and asks direction. This is expected, not a bug.
   content drift to the §8 hand-off.
 - **A width that grows past the band is flagged, not auto-fixed** (§3) — never move a cross-band
   neighbour to make room horizontally.
+- **New sections land on `currentPage`, which resets every `use_figma` call.** An invocation
+  starts on the *first* page, so a section created before `setCurrentPageAsync` — or a top-level
+  node appended while `currentPage` is stale — silently lands on the wrong page. **Parent every
+  new (and relocated) section to the target page by id** (`targetPage.appendChild(section)`) and
+  **assert `section.parent.id === pageId`**. Verify placement by **parent page, not a
+  screenshot** — a screenshot renders a node on any page and hides the error, so a screenshot-only
+  check passes a misparented section.
 - **App-bar / nav titles** — a freshly built section inherits the direction skills' title rule
   (title = flow name, not a content H1); verify after building.
 

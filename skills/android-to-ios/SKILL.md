@@ -215,7 +215,11 @@ pill, on iOS a radius-8 button and the nav tint.
    source, left-aligned, in the managed band); `#565656` bg; clone the Android `Status` sidebar
    → **black fill, white text**, full height. **Write the identity stamp** on the new section
    (`figmaSyncFlowId` / `figmaSyncRole=ios` / `figmaSyncPairId`, per `page-layout` §1) so it is
-   idempotently recognised and paired later.
+   idempotently recognised and paired later. **Parent the new section to the target page
+   explicitly** — `targetPage.appendChild(section)` by page id, then assert
+   `section.parent.id === pageId`. A `use_figma` call resets `currentPage` to the *first* page,
+   so a section created before switching silently lands on the wrong page; parenting by id (not
+   relying on `currentPage`) prevents it.
 3. **Screen 1 first**, get sign-off before batching.
 4. **Per screen:** iOS status bar → grabber (if a sheet) → nav (header rule) → cloned `Content AL`
    re-fonted to SF Pro (§4.1) → Spacer → iOS brand button (label from the visible Android

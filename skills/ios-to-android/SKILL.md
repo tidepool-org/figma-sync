@@ -188,7 +188,11 @@ Material `Button` (Filled/enabled), FILL width, override container fill to brand
    its source, left-aligned, in the managed band); gray bg; clone iOS `Status` sidebar → white
    fill, dark text, **stroke removed**, full height. **Write the identity stamp** on the new
    section (`figmaSyncFlowId` / `figmaSyncRole=android` / `figmaSyncPairId`, per `page-layout`
-   §1) so it is idempotently recognised and paired later.
+   §1) so it is idempotently recognised and paired later. **Parent the new section to the
+   target page explicitly** — `targetPage.appendChild(section)` by page id, then assert
+   `section.parent.id === pageId`. A `use_figma` call resets `currentPage` to the *first* page,
+   so a section created before switching silently lands on the wrong page; parenting by id (not
+   relying on `currentPage`) prevents it.
 3. **Screen 1 first**, get sign-off before batching.
 4. **Per screen:** status bar → centered Top app bar (header rule) → cloned `Content AL`
    re-fonted (§4.1) → Spacer → brand pill CTA (label from the iOS `Button / Primary`) →
