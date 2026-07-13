@@ -1,19 +1,21 @@
 ---
-description: Roll a committed design-system (registry) change across every mapped Figma file for a platform via a full per-screen re-apply that preserves project overrides, with an approval gate, per-file backup/rollback, and per-flow version stamping
-argument-hint: "[ios|android] [summary of what changed]"
+description: Roll a committed design-system (registry) change across the mapped flows of one specified Figma file for a platform via a full per-screen re-apply that preserves project overrides, with an approval gate, per-file backup/rollback, and per-flow version stamping
+argument-hint: "[figma url or file key] [ios|android] [summary of what changed]"
 ---
 
 Roll a **committed** design-system change — reflected into
 `${CLAUDE_PLUGIN_ROOT}/registry/components.json` and committed as the auditable record — across
-**every mapped Figma file** for the chosen platform. Each file is brought to the current design
-system by a **full per-screen re-apply** that **preserves deliberate project overrides**, behind
-an explicit approval gate with a per-file backup/rollback safety net and per-flow version
-stamping. The platform (and a summary of what changed) come from: $ARGUMENTS
+the mapped flows of **one specified Figma file** for the chosen platform. That file is brought to
+the current design system by a **full per-screen re-apply** that **preserves deliberate project
+overrides**, behind an explicit approval gate with a per-file backup/rollback safety net and
+per-flow version stamping. The file (a figma.com URL or file key), the platform, and a summary of
+what changed come from: $ARGUMENTS
 
 Follow the **`figma-sync:ds-update`** skill as the authoritative playbook for the delta method,
-the per-`fileKey` work set (including cross-file duplicates), override detection/preservation,
+the single-file work set (scoped to the resolved `fileKey`), override detection/preservation,
 the backup mechanism, the full re-apply routing, verify/restore, version stamping, and the
-reversed reconciliation rule. Do not duplicate or deviate from it here. Phases 1–5 are
+single-file scoping rule (other files, including cross-file duplicates, need their own run). Do
+not duplicate or deviate from it here. Phases 1–5 are
 **read-only** (preflight, delta, work set, override detect, present); phases 6–11 **write, and
 only after approval**. Work through these phases:
 
@@ -21,14 +23,14 @@ only after approval**. Work through these phases:
 - Confirm the Figma MCP is available and authenticated: call `mcp__plugin_figma_figma__whoami`. If it fails, stop and tell the user to open Figma desktop, enable the MCP server, and sign in. (This plugin rides on the official Figma MCP — it does **not** provide its own.)
 - Read the current design-system constants from `${CLAUDE_PLUGIN_ROOT}/registry/components.json` — its `version` and the component keys / tokens / layout values as they stand now. This is the state you re-apply to; use those keys, do not re-discover by search unless a key is missing/stale.
 - **Confirm the DS change is committed, not just dirty.** The registry commit is the auditable record and the source of the delta — if `registry/components.json` has uncommitted changes, stop and tell the user to commit the DS edit first. Never apply from a dirty working tree.
-- Resolve the target platform (`ios` or `android`) from `$ARGUMENTS` and capture the trailing `[summary of what changed]` as the steering hint. If the platform is missing or ambiguous, stop and ask.
+- Resolve the **target file** (a figma.com URL or file key), the target platform (`ios` or `android`), and the trailing `[summary of what changed]` (the steering hint) from `$ARGUMENTS`. The file scopes the entire run — the re-apply touches **only that one file**, never every mapped file for the platform. If the file **or** the platform is missing or ambiguous, stop and ask.
 
 ## 2. Compute the delta
 - Obtain the machine-readable change via `git diff` on `${CLAUDE_PLUGIN_ROOT}/registry/components.json` (the committed before→after). Cross-check it against the human `[summary of what changed]`; **surface any divergence** — a summary naming a change the diff doesn't show, or vice versa — before proceeding. Never apply an unstated change.
 
 ## 3. Build the work set
-- Load `~/.figma-sync/mappings.json`. Select flows that have a section node for the target platform (`iosSectionNodeId` for `ios`, `androidSectionNodeId` for `android`). **If no flow maps the platform, stop** and tell the user to run a `create-ios` / `create-android` command first to establish the section nodes.
-- Per the skill's §2: **group by `fileKey`** so each physical file is processed once, and **include cross-file duplicates** — each is its own file to update (this is the reverse of `sync-screens`, which flags cross-file duplicates rather than editing them).
+- Load `~/.figma-sync/mappings.json`. Restrict to the **resolved file's `fileKey`** (from phase 1), then within it select flows that have a section node for the target platform (`iosSectionNodeId` for `ios`, `androidSectionNodeId` for `android`). **If the file maps no flow for the platform, stop** and tell the user to run a `create-ios` / `create-android` command against that file first to establish the section nodes.
+- The run is deliberately **single-file**: the specified `fileKey` is processed and **no other mapped file is touched**, even one that maps the same flow. A cross-file duplicate in a different file is out of scope — re-run the command with that file's URL to bring it current. Reaching every mapped copy of a flow is done across multiple runs, one per file.
 - **Skip flows whose `dsVersion` already equals the registry `version`** (already at this DS state) — this is what makes a partial fan-out resumable. Override the skip only when the `$ARGUMENTS` hints contain the word **`force`** (re-apply even current flows); note in the report when force was in effect. A flow with no `dsVersion` is never-DS-updated and always in the set.
 
 ## 4. Detect overrides (read-only)
@@ -44,15 +46,15 @@ only after approval**. Work through these phases:
 ## 7. Back up (after approval, before any write)
 - Per the skill's §4, take a per-file backup **before the first write**: a full re-apply is structure-changing, so **duplicate the affected platform section's screens into a hidden frame** (`visible=false`) named for the run, and record the backup node id in `~/.figma-sync/mappings.json`. The content snapshot cannot back up a chrome change; reverting the registry commit cannot restore mutated files. **No backup → do not mutate.**
 
-## 8. Fan out — one agent per `fileKey`
-- Per the skill's §5, process **one file per agent**: offload each `fileKey` to the `screen-builder` (→ Android) / `screen-builder-ios` (→ iOS) agent with a **"full re-apply preserving overrides"** spec — the section node id, the ordered screen node ids, and the per-screen override list from phase 4. The agent rebuilds each screen's chrome from the **current** DS (routing per screen to `figma-sync:ios-to-android` / `figma-sync:android-to-ios`) while carrying the overrides forward; an empty override list means a clean rebuild to stock DS. Work in **atomic ≤10-op batches** and **screenshot between**.
+## 8. Apply — offload the file to a builder agent
+- Per the skill's §5, offload the **one resolved file** to the `screen-builder` (→ Android) / `screen-builder-ios` (→ iOS) agent with a **"full re-apply preserving overrides"** spec — the section node id, the ordered screen node ids, and the per-screen override list from phase 4. The agent rebuilds each screen's chrome from the **current** DS (routing per screen to `figma-sync:ios-to-android` / `figma-sync:android-to-ios`) while carrying the overrides forward; an empty override list means a clean rebuild to stock DS. Work in **atomic ≤10-op batches** and **screenshot between**.
 
 ## 9. Verify
 - Per the skill's §6, screenshot each touched screen and confirm the chrome matches the current DS and each preserved override survived. On a mismatch, **restore from the hidden-duplicate backup** and report the failure. Verify the rebuilt screens' app-bar / nav titles read the flow name, not a content H1. **Never leave a silent partial apply** — report precisely which files applied, which were skipped, and which failed-and-restored.
 
 ## 10. Stamp version & clean up backups
-- Per the skill's §7, on each file's **successful** re-apply, write `dsVersion` (the registry `version` just applied) + `dsAppliedAt` (today, ISO) for every flow whose file was updated; see `${CLAUDE_PLUGIN_ROOT}/mappings.example.json` for the schema. A file that **failed** (restored) is **not** stamped, so a re-run retries it.
+- Per the skill's §7, on the file's **successful** re-apply, write `dsVersion` (the registry `version` just applied) + `dsAppliedAt` (today, ISO) for every flow that was updated; see `${CLAUDE_PLUGIN_ROOT}/mappings.example.json` for the schema. A flow that **failed** (restored) is **not** stamped, so a re-run retries it.
 - **keep-last-1 per flow:** after the run succeeds, delete any older backup frame for this flow, retaining only the most recent.
 
 ## 11. Report
-- Per the skill's §9, output a per-file summary: **applied** (with overrides preserved per file), **skipped-current** (and any `force`), **failed** (mismatched on verify and restored, with reason), the backup node id + verify result per file, and the `dsVersion` / `dsAppliedAt` stamped per updated flow. A DS change does not propagate between files — every file was updated directly, so there is no cross-file reconciliation step. Surface everything — never claim success for a file that failed verify.
+- Per the skill's §9, output a per-flow summary for the file: **applied** (with overrides preserved per flow), **skipped-current** (and any `force`), **failed** (mismatched on verify and restored, with reason), the backup node id + verify result, and the `dsVersion` / `dsAppliedAt` stamped per updated flow. The run touched **only this file** — name it explicitly and note that other mapped files (including any cross-file duplicate of these flows) were **not** updated and need their own re-run. Surface everything — never claim success for a flow that failed verify.

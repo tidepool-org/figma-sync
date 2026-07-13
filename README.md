@@ -2,7 +2,7 @@
 
 A Claude Code **plugin** for translating Figma flows between **iOS (Apple HIG)** and
 **Android (Material 3)** — in **either direction** — keeping the two platforms' screens in sync
-as content changes, and rolling design-system updates across every file. Built for Tidepool's
+as content changes, and rolling design-system updates into a file at a time. Built for Tidepool's
 design team.
 
 It rides on the **official Figma MCP** (it does not ship its own MCP server), and encodes the
@@ -30,7 +30,7 @@ during development: `~/src/github/tidepool/figma-sync`.)
 | Translate **one** flow to the other platform | `create-android` / `create-ios` |
 | Reconcile a **whole page of many flows** for a platform | `build-page` |
 | Propagate **content edits** between a flow's two platforms | `sync-screens` |
-| Roll a **design-system change** across every mapped file | `apply-ds-update` |
+| Roll a **design-system change** into one specified file | `apply-ds-update` |
 
 **The shared safety model.** Every command that writes runs the same way: it works **read-only
 first**, presents a **plan**, and mutates **only after you explicitly approve** in a following
@@ -125,21 +125,22 @@ snapshots, so later syncs behave normally. **No manual setup required.**
 ---
 
 ### `/figma-sync:apply-ds-update`
-**Purpose:** roll a committed **design-system** change across **every mapped file** for a
+**Purpose:** roll a committed **design-system** change into **one specified file** for a
 platform, via a full per-screen re-apply that preserves deliberate project overrides.
 
-**Arguments:** `[ios|android] [summary of what changed]`
+**Arguments:** `[figma url or file key] [ios|android] [summary of what changed]`
 
 **When to use:** iOS or Android ships a new spec. First reflect it into
 `registry/components.json` and **commit** — that commit is the auditable record and the version
-the run stamps onto each updated flow.
+the run stamps onto each updated flow. Run it once per file you want to bring current.
 
-**How it runs:** read the DS delta from the registry `git diff` → build the work set of every
-mapped file for the platform (grouped by `fileKey`, **including cross-file duplicates**) →
-detect deliberate project overrides to preserve → **approve** → back up each file (a hidden
-in-canvas duplicate) → fan out one agent per file to fully re-apply each screen's chrome from the
-current DS while keeping overrides → verify (restore on mismatch) → stamp each flow with the
-applied `dsVersion` so a re-run **skips files already current** (resumable).
+**How it runs:** read the DS delta from the registry `git diff` → build the work set from the
+resolved file's mapped flows for the platform (a single `fileKey`; **other files, including
+cross-file duplicates, are out of scope**) → detect deliberate project overrides to preserve →
+**approve** → back up the file (a hidden in-canvas duplicate) → offload the file to an agent to
+fully re-apply each screen's chrome from the current DS while keeping overrides → verify (restore
+on mismatch) → stamp each flow with the applied `dsVersion` so a re-run against the file **skips
+flows already current** (resumable).
 
 ---
 
@@ -155,8 +156,9 @@ applied `dsVersion` so a re-run **skips files already current** (resumable).
 - **`skills/drift-sync/`** — the content-sync playbook `sync-screens` defers to: detect where a
   mapped flow's content diverged (including live-pairing for adopted pairs), plan, and — only after
   approval — propagate deltas with backup/restore.
-- **`skills/ds-update/`** — the design-system playbook `apply-ds-update` defers to: per-fileKey
-  work set, override preservation, full per-screen re-apply, and per-flow version stamping.
+- **`skills/ds-update/`** — the design-system playbook `apply-ds-update` defers to: single-file
+  work set (the run's resolved `fileKey`), override preservation, full per-screen re-apply, and
+  per-flow version stamping.
 - **`registry/components.json`** — versioned design-system constants (library + component keys,
   tokens, layout values). Update this when iOS/Android ship new specs; it's the source of truth
   for values, and the skills reference its keys by name.

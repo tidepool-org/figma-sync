@@ -44,8 +44,10 @@ tags: [apovault, knowledge, architecture]
   the source section + target DS via `use_figma`, then writes the flow entry to
   `~/.figma-sync/mappings.json`. **Source:** `commands/create-android.md:13,22-29` (read 2026-06-30).
 - **Planned consumers of the mapping:** `sync-screens` reads `screenPairs` to know which
-  Android node mirrors a changed iOS node; `apply-ds-update` reads the mapping to enumerate
-  target files and fans out one agent per file. **Source:** `ARCHITECTURE.md:74-83` (read 2026-06-30).
+  Android node mirrors a changed iOS node; `apply-ds-update` reads the mapping to enumerate the
+  target flows within its **one resolved `fileKey`** (single-file scope — other files, incl.
+  cross-file duplicates, need their own run) and offloads an agent for that file.
+  **Source:** `ARCHITECTURE.md:84-85,111` (read 2026-07-13).
 
 ## References
 

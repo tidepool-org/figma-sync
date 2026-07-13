@@ -1,7 +1,7 @@
 {
   "name": "figma-sync",
   "version": "0.7.2",
-  "description": "Translate Figma flows between iOS (Apple HIG) and Android (Material 3) in either direction, sync content and screen-level structural changes between the platforms with rollback, roll committed design-system updates across every mapped file for a platform, and reconcile whole pages of many flows with a declarative layout packer.",
+  "description": "Translate Figma flows between iOS (Apple HIG) and Android (Material 3) in either direction, sync content and screen-level structural changes between the platforms with rollback, roll committed design-system updates into a specified Figma file for a platform, and reconcile whole pages of many flows with a declarative layout packer.",
   "author": {
     "name": "Tidepool"
   },
