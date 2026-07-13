@@ -3,40 +3,40 @@
   "version": 1,
   "flows": [
     {
-      "name": "A Day in the Life",
-      "flowId": "a-day-in-the-life",
-      "fileKey": "zH3mVwhaHag1qhmFF6O4OC",
-      "fileName": "iOS -> Android (Clint's dev copy)",
-      "page": "Onboarding flow",
-      "iosSectionNodeId": "1:9358",
-      "androidSectionNodeId": "4008:3273",
+      "name": "Example Flow",
+      "flowId": "example-flow",
+      "fileKey": "EXAMPLEfileKey0000000000",
+      "fileName": "iOS -> Android (example working file)",
+      "page": "Example page",
+      "iosSectionNodeId": "1:0001",
+      "androidSectionNodeId": "2:0001",
       "screenPairs": [
         {
-          "name": "ADITL / 01",
-          "ios": "1:9362",
-          "android": "4008:3275",
+          "name": "Example / 01",
+          "ios": "1:0002",
+          "android": "2:0002",
           "iosSnapshot": {
-            "texts": ["A day in the life", "See how Loop fits into your everyday routine."],
-            "imageRefs": ["a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"],
-            "structHash": "sha256:9f2c1b7e",
+            "texts": ["Screen headline", "Supporting body copy for the screen."],
+            "imageRefs": ["0000000000000000000000000000000000000000"],
+            "structHash": "sha256:00000000",
             "ctaLabel": "Continue",
             "screenFill": "#FFFFFF"
           },
           "androidSnapshot": {
-            "texts": ["A day in the life", "See how Loop fits into your everyday routine."],
-            "imageRefs": ["a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"],
-            "structHash": "sha256:9f2c1b7e",
+            "texts": ["Screen headline", "Supporting body copy for the screen."],
+            "imageRefs": ["0000000000000000000000000000000000000000"],
+            "structHash": "sha256:00000000",
             "ctaLabel": "Continue",
             "screenFill": "#FFFFFF"
           }
         },
-        { "name": "ADITL / 02", "ios": "1:9403", "android": "4025:3305" }
+        { "name": "Example / 02", "ios": "1:0003", "android": "2:0003" }
       ],
-      "createdAt": "2026-06-26",
-      "lastSyncedAt": "2026-06-26",
+      "createdAt": "2026-01-01",
+      "lastSyncedAt": "2026-01-01",
       "lastSyncDirection": "ios-to-android",
       "dsVersion": "0.1.0",
-      "dsAppliedAt": "2026-06-26"
+      "dsAppliedAt": "2026-01-01"
     }
   ]
 }
