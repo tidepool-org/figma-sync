@@ -22,6 +22,11 @@ Thumbs.db
 **/.apo/**
 !**/.apo/01_Knowledge/
 !**/.apo/01_Knowledge/**
-**/.apo/01_Knowledge/_pending/
+# No trailing slash: a directory-only pattern stops matching once this entry is a
+# symlink into the canonical control store, and the negation above would then
+# un-ignore it — so git would want to commit a link holding a local absolute path.
+**/.apo/01_Knowledge/_pending
 !**/.apo/04_Templates/
 !**/.apo/04_Templates/**
+# Gating policy is deliberately git-reviewed config (it decides what agents may auto-proceed).
+!**/.apo/gating.json
