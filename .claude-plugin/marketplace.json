@@ -11,7 +11,7 @@
       "name": "figma-sync",
       "source": "./",
       "description": "iOS ↔ Android Figma flow translation, design-system sync, and multi-section page reconciliation.",
-      "version": "0.7.2"
+      "version": "0.7.3"
     }
   ]
 }

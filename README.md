@@ -14,12 +14,37 @@ team's platform conventions as reusable **skills** that a set of **slash command
 - Edit access to the target Figma file.
 
 ## Install
+This repo is **private**, so Claude Code needs credentials that can clone it. The `owner/repo`
+shorthand clones over **SSH** by default — if you have no SSH key loaded, use the HTTPS URL
+below instead.
+
+One-time GitHub auth (skip if `gh auth status` already looks good):
 ```
-/plugin marketplace add tidepool-org/figma-sync
+gh auth login        # HTTPS, browser flow — no SSH key needed
+gh auth setup-git    # install the git credential helper
+```
+
+Then, in Claude Code:
+```
+/plugin marketplace add https://github.com/tidepool-org/figma-sync.git
 /plugin install figma-sync@tidepool
+/reload-plugins
 ```
+
 Update later with `/plugin marketplace update tidepool` then `/reload-plugins`. (Repo path
 during development: `~/src/github/tidepool/figma-sync`.)
+
+**Private-marketplace auto-updates.** The background refresh disables git credential helpers, so
+its `git pull` can't authenticate over HTTPS and Claude Code falls back to a full re-clone. Set
+`CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE=1` so a failed pull keeps your existing clone
+instead of deleting it; manual `/plugin marketplace update` still works with your credentials.
+
+**Not using the terminal?** The desktop **Code** tab's plugin browser (**+** → Plugins) installs
+from marketplaces you've already configured, and cloud sessions have no plugin browser at all —
+neither bootstraps a private marketplace. Two options: run the `/plugin marketplace add` above
+once in the terminal CLI, or have an org owner distribute the plugin through **Organization
+settings → Plugins** (Team/Enterprise), which syncs this repo through the Claude GitHub App so
+members need no local git credentials.
 
 ---
 
